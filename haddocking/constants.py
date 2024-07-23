@@ -32,7 +32,11 @@ DEFAULT_VERSION = '1.0'
 HADDOCK_DIC = {'name': 'HADDOCK',    'version': '3.0',
                'home': 'HADDOCK_HOME', 'activation': 'HADDOCK_ACTIVATION_CMD'}
 
+CNS_DIC = {'name': 'CNS',    'version': '1.3',
+           'home': 'CNS_HOME', 'tar': 'CNS_TAR', 'pattern': 'cns'}
+
 CPORT_DIC = {'name': 'CPORT',    'version': '0.2.0',
              'home': 'CPORT_HOME', 'activation': 'CPORT_ACTIVATION_CMD'}
 
 CPORT_URL = 'https://github.com/haddocking/cport.git'
+HADDOCK_URL = 'https://github.com/haddocking/haddock3.git'

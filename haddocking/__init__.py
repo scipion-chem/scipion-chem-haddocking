@@ -31,6 +31,7 @@ import os
 import subprocess as sp
 
 from scipion.install.funcs import InstallHelper
+from pwem import Config as emConfig
 
 from pwchem import Plugin as pwchemPlugin
 
@@ -46,15 +47,50 @@ class Plugin(pwchemPlugin):
 
 	@classmethod
 	def _defineVariables(cls):
+		cls._defineEmVar(HADDOCK_DIC['home'], cls.getEnvName(HADDOCK_DIC))
 		cls._defineEmVar(CPORT_DIC['home'], cls.getEnvName(CPORT_DIC))
 
+		cls._defineVar(CNS_DIC['home'], None)
+		cls._defineVar(CNS_DIC['tar'], None)
+
+		cls._defineVar('HADDOCK_ENV_ACTIVATION', cls.getEnvActivationCommand(HADDOCK_DIC))
 		cls._defineVar('CPORT_ENV_ACTIVATION', cls.getEnvActivationCommand(CPORT_DIC))
 
 
 	@classmethod
 	def defineBinaries(cls, env, default=True):
 		"""This function defines the binaries for each package."""
+		if cls.checkVarPath(CNS_DIC, 'tar'):
+			cls.addHADDOCKPackage(env, tarPath=cls.getVar(CNS_DIC['tar']))
+		elif cls.checkVarPath(CNS_DIC, 'home'):
+			cls.addHADDOCKPackage(env, cnsHome=cls.getVar(CNS_DIC['home']))
+
 		cls.addCPORTPackage(env)
+
+	@classmethod
+	def addHADDOCKPackage(cls, env, cnsHome=None, tarPath=None, default=True):
+		installer = InstallHelper(HADDOCK_DIC['name'], packageHome=cls.getVar(HADDOCK_DIC['home']),
+															packageVersion=HADDOCK_DIC['version'])
+
+		cnsOrigin = cnsHome if cnsHome else tarPath
+		cnsTarCmd = f'tar -zxvf {os.path.basename(tarPath)} && ' if tarPath else ''
+		cnsName = 'cns_solve_1.3'
+
+		# Installing HADDOCK + CNS package
+		installer.getCondaEnvCommand(pythonVersion='3.9', requirementsFile=False) \
+			.addCommand(f'git clone --recursive {HADDOCK_URL}') \
+			.addCommand(f'cd haddock3/src/fcc/src && chmod u+x Makefile && make', 'FCC_INSTALLED') \
+			.addCommand(f'cd haddock3/src/fast-rmsdmatrix/src && chmod u+x Makefile && make fast-rmsdmatrix',
+									'FAST-RMSDMATRIX_INSTALLED') \
+		  .addCommand(f'cd haddock3 && {cls.getEnvActivationCommand(HADDOCK_DIC)} && pip install -r requirements.txt && '
+									f'python setup.py develop --no-deps', 'HADDOCK_INSTALLED') \
+			.addCommand(f'''mkdir -p software && cd software && mv {cnsOrigin} {cnsName} && {cnsTarCmd} cd {cnsName} && \
+			sed -i 's@_CNSsolve_location_@'"$PWD"'@' cns_solve_env && cp -r ../../haddock3/varia/cns1.3/[bis]* . && \
+			make install compiler=gfortran && mkdir -p ../../haddock3/bin && \
+			cp $(./bin/getarch)/source/cns_solve-*.exe ../../haddock3/bin/cns''',
+									'CNS_INSTALLED') \
+			.addPackage(env, ['git', 'pip'], default=default)
+
 
 	@classmethod
 	def addCPORTPackage(cls, env, default=True):
@@ -84,3 +120,21 @@ class Plugin(pwchemPlugin):
 			sp.check_call(f'{fullProgram} {args}', cwd=cportHome, shell=True)
 
 		os.rename(outPath, protocol.getOutputDir())
+
+	@classmethod
+	def checkVarPath(cls, softDic, var='home'):
+		'''Check if a plugin variable exists and so do its path'''
+		exists = False
+		varValue = cls.getVar(softDic[var])
+		if varValue and os.path.exists(varValue):
+			exists = True
+		return exists
+
+	@classmethod
+	def getDefaultDir(cls, softDic, fn=""):
+		emDir = emConfig.EM_ROOT
+		for file in os.listdir(emDir):
+			if softDic['pattern'] in file.lower():
+				foundDir = os.path.join(emDir, file, fn)
+				return foundDir.rstrip('/')
+		return os.path.join(emConfig.EM_ROOT, cls.getEnvName(softDic))
