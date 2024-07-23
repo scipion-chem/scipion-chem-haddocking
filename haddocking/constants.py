@@ -40,3 +40,6 @@ CPORT_DIC = {'name': 'CPORT',    'version': '0.2.0',
 
 CPORT_URL = 'https://github.com/haddocking/cport.git'
 HADDOCK_URL = 'https://github.com/haddocking/haddock3.git'
+GDOCK_URL = 'https://github.com/rvhonorato/gdock.git'
+LIGHTDOCK_URL = 'https://github.com/lightdock/lightdock.git'
+

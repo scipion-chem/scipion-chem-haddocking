@@ -82,13 +82,21 @@ class Plugin(pwchemPlugin):
 			.addCommand(f'cd haddock3/src/fcc/src && chmod u+x Makefile && make', 'FCC_INSTALLED') \
 			.addCommand(f'cd haddock3/src/fast-rmsdmatrix/src && chmod u+x Makefile && make fast-rmsdmatrix',
 									'FAST-RMSDMATRIX_INSTALLED') \
-		  .addCommand(f'cd haddock3 && {cls.getEnvActivationCommand(HADDOCK_DIC)} && pip install -r requirements.txt && '
+			.addCommand(f'cd haddock3 && {cls.getEnvActivationCommand(HADDOCK_DIC)} && pip install -r requirements.txt && '
 									f'python setup.py develop --no-deps', 'HADDOCK_INSTALLED') \
 			.addCommand(f'''mkdir -p software && cd software && mv {cnsOrigin} {cnsName} && {cnsTarCmd} cd {cnsName} && \
 			sed -i 's@_CNSsolve_location_@'"$PWD"'@' cns_solve_env && cp -r ../../haddock3/varia/cns1.3/[bis]* . && \
 			make install compiler=gfortran && mkdir -p ../../haddock3/bin && \
 			cp $(./bin/getarch)/source/cns_solve-*.exe ../../haddock3/bin/cns''',
 									'CNS_INSTALLED') \
+			.addCommand(f'cd software && git clone {GDOCK_URL} && {cls.getEnvActivationCommand(HADDOCK_DIC)} && '
+									f'pip install deap scipy mgzip biopython && {cls.addCondaVarCmd("GDOCK_HOME", "$(pwd)/gdock")}',
+									'GDOCK_INSTALLED') \
+			.addCommand(f'cd software && git clone {LIGHTDOCK_URL} && {cls.getEnvActivationCommand(HADDOCK_DIC)} && '
+									f'cd lightdock && pip install -e . && {cls.addCondaVarCmd("LIGHTDOCK_HOME", "$(pwd)/lightdock")} && '
+									f'{cls.addCondaVarCmd("PATH", "$PATH:$LIGHTDOCK_HOME/bin")} && '
+									f'{cls.addCondaVarCmd("PYTHONPATH", "$PYTHONPATH:$LIGHTDOCK_HOME")}',
+									'LIGHTDOCK_INSTALLED') \
 			.addPackage(env, ['git', 'pip'], default=default)
 
 
@@ -138,3 +146,7 @@ class Plugin(pwchemPlugin):
 				foundDir = os.path.join(emDir, file, fn)
 				return foundDir.rstrip('/')
 		return os.path.join(emConfig.EM_ROOT, cls.getEnvName(softDic))
+
+	@classmethod
+	def addCondaVarCmd(cls, varName, varValue):
+		return f"conda env config vars set {varName}={varValue}"
