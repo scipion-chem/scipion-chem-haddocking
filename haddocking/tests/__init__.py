@@ -24,4 +24,4 @@
 # *
 # **************************************************************************
 
-from immuno.tests import *
+from haddocking.tests import *
