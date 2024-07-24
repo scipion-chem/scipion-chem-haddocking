@@ -49,6 +49,8 @@ class Plugin(pwchemPlugin):
 	def _defineVariables(cls):
 		cls._defineEmVar(HADDOCK_DIC['home'], cls.getEnvName(HADDOCK_DIC))
 		cls._defineEmVar(CPORT_DIC['home'], cls.getEnvName(CPORT_DIC))
+		cls._defineEmVar(GDOCK_DIC['home'], cls.getEnvName(GDOCK_DIC))
+		cls._defineEmVar(LIGHTDOCK_DIC['home'], cls.getEnvName(LIGHTDOCK_DIC))
 
 		cls._defineVar(CNS_DIC['home'], None)
 		cls._defineVar(CNS_DIC['tar'], None)
@@ -66,6 +68,8 @@ class Plugin(pwchemPlugin):
 			cls.addHADDOCKPackage(env, cnsHome=cls.getVar(CNS_DIC['home']))
 
 		cls.addCPORTPackage(env)
+		cls.addGDockPackage(env)
+		cls.addLightDockPackage(env)
 
 	@classmethod
 	def addHADDOCKPackage(cls, env, cnsHome=None, tarPath=None, default=True):
@@ -78,7 +82,7 @@ class Plugin(pwchemPlugin):
 
 		# Installing HADDOCK + CNS package
 		installer.getCondaEnvCommand(pythonVersion='3.9', requirementsFile=False) \
-			.addCommand(f'git clone --recursive {HADDOCK_URL}') \
+			.addCommand(f'git clone --recursive {HADDOCK_DIC["url"]}') \
 			.addCommand(f'cd haddock3/src/fcc/src && chmod u+x Makefile && make', 'FCC_INSTALLED') \
 			.addCommand(f'cd haddock3/src/fast-rmsdmatrix/src && chmod u+x Makefile && make fast-rmsdmatrix',
 									'FAST-RMSDMATRIX_INSTALLED') \
@@ -89,16 +93,29 @@ class Plugin(pwchemPlugin):
 			make install compiler=gfortran && mkdir -p ../../haddock3/bin && \
 			cp $(./bin/getarch)/source/cns_solve-*.exe ../../haddock3/bin/cns''',
 									'CNS_INSTALLED') \
-			.addCommand(f'cd software && git clone {GDOCK_URL} && {cls.getEnvActivationCommand(HADDOCK_DIC)} && '
+			.addPackage(env, ['git', 'pip'], default=default)
+
+	@classmethod
+	def addGDockPackage(cls, env, default=True):
+		installer = InstallHelper(GDOCK_DIC['name'], packageHome=cls.getVar(GDOCK_DIC['home']),
+															packageVersion=GDOCK_DIC['version'])
+
+		installer.addCommand(f'git clone {GDOCK_DIC["url"]} && {cls.getEnvActivationCommand(HADDOCK_DIC)} && '
 									f'pip install deap scipy mgzip biopython && {cls.addCondaVarCmd("GDOCK_HOME", "$(pwd)/gdock")}',
 									'GDOCK_INSTALLED') \
-			.addCommand(f'cd software && git clone {LIGHTDOCK_URL} && {cls.getEnvActivationCommand(HADDOCK_DIC)} && '
+			.addPackage(env, ['git', 'pip'], default=default)
+
+	@classmethod
+	def addLightDockPackage(cls, env, default=True):
+		installer = InstallHelper(LIGHTDOCK_DIC['name'], packageHome=cls.getVar(LIGHTDOCK_DIC['home']),
+															packageVersion=LIGHTDOCK_DIC['version'])
+
+		installer.addCommand(f'git clone {LIGHTDOCK_DIC["url"]} && {cls.getEnvActivationCommand(HADDOCK_DIC)} && '
 									f'cd lightdock && pip install -e . && {cls.addCondaVarCmd("LIGHTDOCK_HOME", "$(pwd)/lightdock")} && '
 									f'{cls.addCondaVarCmd("PATH", "$PATH:$LIGHTDOCK_HOME/bin")} && '
 									f'{cls.addCondaVarCmd("PYTHONPATH", "$PYTHONPATH:$LIGHTDOCK_HOME")}',
 									'LIGHTDOCK_INSTALLED') \
 			.addPackage(env, ['git', 'pip'], default=default)
-
 
 	@classmethod
 	def addCPORTPackage(cls, env, default=True):
@@ -106,7 +123,8 @@ class Plugin(pwchemPlugin):
 															packageVersion=CPORT_DIC['version'])
 		# Installing CPORT package
 		installer.getCondaEnvCommand(pythonVersion='3.10', requirementsFile=False) \
-			.addCommand(f'git clone {CPORT_URL} && cd cport && {cls.getEnvActivationCommand(CPORT_DIC)} && pip install .') \
+			.addCommand(f'git clone {CPORT_DIC["url"]} && cd cport && {cls.getEnvActivationCommand(CPORT_DIC)} && '
+									f'pip install .') \
 			.addPackage(env, ['git', 'conda', 'pip'], default=default)
 
 
