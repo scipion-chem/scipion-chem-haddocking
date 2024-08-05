@@ -29,10 +29,19 @@
 DEFAULT_VERSION = '1.0'
 
 # Package dictionaries
-HADDOCK_DIC = {'name': 'HADDOCK',    'version': '3.0',
+HADDOCK_DIC = {'name': 'HADDOCK',    'version': '3.0', 'url': 'https://github.com/haddocking/haddock3.git',
                'home': 'HADDOCK_HOME', 'activation': 'HADDOCK_ACTIVATION_CMD'}
 
-CPORT_DIC = {'name': 'CPORT',    'version': '0.2.0',
+CNS_DIC = {'name': 'CNS',    'version': '1.3',
+           'home': 'CNS_HOME', 'tar': 'CNS_TAR', 'pattern': 'cns'}
+
+CPORT_DIC = {'name': 'CPORT',    'version': '0.2.0', 'url': 'https://github.com/haddocking/cport.git',
              'home': 'CPORT_HOME', 'activation': 'CPORT_ACTIVATION_CMD'}
 
-CPORT_URL = 'https://github.com/haddocking/cport.git'
+GDOCK_DIC = {'name': 'GDock',    'version': '1.0', 'url': 'https://github.com/rvhonorato/gdock.git',
+             'home': 'GDOCK_HOME'}
+
+LIGHTDOCK_DIC = {'name': 'LightDock',    'version': '1.0', 'url': 'https://github.com/lightdock/lightdock.git',
+                 'home': 'LIGHTDOCK_HOME'}
+
+

@@ -24,74 +24,40 @@
 # *
 # **************************************************************************
 
-from pyworkflow.tests import setupTestProject, DataSet, BaseTest
+from pyworkflow.tests import BaseTest, setupTestProject, DataSet
+from pwem.protocols import ProtImportPdb
+from ..protocols import ProtCPORTPrediction
 
-from pwem.protocols import ProtImportSequence
+class TestCPORT(BaseTest):
+    @classmethod
+    def setUpClass(cls):
+        cls.ds = DataSet.getDataSet('model_building_tutorial')
 
-from pwchem.utils import assertHandle
+        setupTestProject(cls)
+        cls._runImportPDB()
 
-from ..protocols import ProtIIITDEpitopePrediction, ProtIIITDEvaluations
-from ..constants import SELSUM, EVALSUM
+    @classmethod
+    def _runImportPDB(cls):
+        protImportPDB = cls.newProtocol(
+            ProtImportPdb,
+            inputPdbData=1,
+            pdbFile=cls.ds.getFile('PDBx_mmCIF/5ni1.pdb'))
+        cls.launchProtocol(protImportPDB)
+        cls.protImportPDB = protImportPDB
 
-class TestIIITDPrediction(BaseTest):
-	NAME = 'USER_SEQ'
-	DESCRIPTION = 'User description'
-	AMINOACIDSSEQ1 = 'MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLSFPTTKTYFPHFDLSHGSAQVKGHG'
+    def _runCPORTFind(self):
+        protCPORT = self.newProtocol(
+            ProtCPORTPrediction,
+            inputAtomStruct=self.protImportPDB.outputPdb,
+						chain_name='{"model": 0, "chain": "C", "residues": 141}'
+				)
 
-	@classmethod
-	def setUpClass(cls):
-		super().setUpClass()
-		cls.ds = DataSet.getDataSet('model_building_tutorial')
-		setupTestProject(cls)
+        self.launchProtocol(protCPORT)
+        pdbOut = getattr(protCPORT, 'outputStructROIs', None)
+        self.assertIsNotNone(pdbOut)
+        return protCPORT
 
-		cls._runImportSeq()
-		cls._waitOutput(cls.protImportSeq, 'outputSequences', sleepTime=5)
+    def testP2Rank(self):
+        protCPORT = self._runCPORTFind()
+        self.assertIsNotNone(protCPORT.outputStructROIs)
 
-	@classmethod
-	def _runImportSeq(cls):
-		kwargs = {'inputSequenceName': cls.NAME,
-							'inputSequenceDescription': cls.DESCRIPTION,
-							'inputRawSequence': cls.AMINOACIDSSEQ1
-							}
-
-		cls.protImportSeq = cls.newProtocol(
-			ProtImportSequence, **kwargs)
-		cls.proj.launchProtocol(cls.protImportSeq, wait=False)
-
-	def _runIIITDSelection(self):
-		protSel = self.newProtocol(ProtIIITDEpitopePrediction,
-																		inSels=SELSUM)
-
-		protSel.inputSequence.set(self.protImportSeq)
-		protSel.inputSequence.setExtended('outputSequence')
-
-		self.proj.launchProtocol(protSel, wait=False)
-		return protSel
-
-	def test(self):
-		protSel = self._runIIITDSelection()
-		self._waitOutput(protSel, 'outputROIs', sleepTime=10)
-		assertHandle(self.assertIsNotNone, getattr(protSel, 'outputROIs', None))
-
-
-class TestIIITDEvaluation(TestIIITDPrediction):
-	NAME = 'USER_SEQ'
-	DESCRIPTION = 'User description'
-	AMINOACIDSSEQ1 = 'MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLSFPTTKTYFPHFDLSHGSAQVKGHG'
-
-	def _runIIITDEvaluation(self, protSel):
-		protEval = self.newProtocol(ProtIIITDEvaluations,
-															 inEvals=EVALSUM)
-
-		protEval.inputROIs.set(protSel)
-		protEval.inputROIs.setExtended('outputROIs')
-
-		self.proj.launchProtocol(protEval, wait=False)
-		return protEval
-
-	def test(self):
-		protSel = self._runIIITDSelection()
-		self._waitOutput(protSel, 'outputROIs', sleepTime=10)
-		protEval = self._runIIITDEvaluation(protSel)
-		self._waitOutput(protEval, 'outputROIs', sleepTime=10)
-		assertHandle(self.assertIsNotNone, getattr(protEval, 'outputROIs', None))
