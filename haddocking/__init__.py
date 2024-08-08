@@ -62,14 +62,18 @@ class Plugin(pwchemPlugin):
 	@classmethod
 	def defineBinaries(cls, env, default=True):
 		"""This function defines the binaries for each package."""
+		haddockFound = False
 		if cls.checkVarPath(CNS_DIC, 'tar'):
 			cls.addHADDOCKPackage(env, tarPath=cls.getVar(CNS_DIC['tar']))
+			haddockFound = True
 		elif cls.checkVarPath(CNS_DIC, 'home'):
 			cls.addHADDOCKPackage(env, cnsHome=cls.getVar(CNS_DIC['home']))
+			haddockFound = True
 
-		cls.addCPORTPackage(env)
-		cls.addGDockPackage(env)
-		cls.addLightDockPackage(env)
+		if haddockFound:
+			cls.addCPORTPackage(env)
+			cls.addGDockPackage(env)
+			cls.addLightDockPackage(env)
 
 	@classmethod
 	def addHADDOCKPackage(cls, env, cnsHome=None, tarPath=None, default=True):
