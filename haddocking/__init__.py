@@ -172,3 +172,9 @@ class Plugin(pwchemPlugin):
 	@classmethod
 	def addCondaVarCmd(cls, varName, varValue):
 		return f"conda env config vars set {varName}={varValue}"
+
+	@classmethod
+	def getPluginHome(cls, path=""):
+		import haddocking
+		fnDir = os.path.split(haddocking.__file__)[0]
+		return os.path.join(fnDir, path)

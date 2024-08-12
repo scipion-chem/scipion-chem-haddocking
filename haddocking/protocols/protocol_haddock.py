@@ -47,6 +47,10 @@ class ProtHaddockPrediction(EMProtocol):
       form = self._defineInputParams(form, i)
 
     form.addSection(label='Restraints')
+    form.addParam(f'filterSurface', params.FloatParam, default=0.15,
+                  label=f'Minimum surface accessibility: ',
+                  help=f'Filter the defined restraint residues for a minimum surface accessibility')
+
     for i in range(1, 3):
       form = self._defineRestraints(form, i)
 
@@ -148,12 +152,36 @@ class ProtHaddockPrediction(EMProtocol):
     pas = list(set(pas).difference(set(act)))
     return {'active': act, 'passive': pas}
 
+  def parseSASAFile(self, sasaFile):
+    '''Return a dictionary {chain_resnum: [backboneSASA, sideSASA]}'''
+    sasaDic = {}
+    with open(sasaFile) as f:
+      for line in f:
+        sline = line.split()
+        sasaDic[sline[0]] = [sline[2], sline[3]]
+    return sasaDic
+
+  def filterSASA(self, defRes, num):
+    sasaFile = self.calculateFreeSASA(num)
+    sasaDic = self.parseSASAFile(sasaFile)
+    minSASA = self.filterSurface.get()
+
+    nDefRes = {}
+    for k in defRes:
+      nDefRes[k] = []
+      for res in defRes[k]:
+        if float(sasaDic[res][0]) >= minSASA or (sasaDic[res][1] != 'nan' and float(sasaDic[res][1]) >= minSASA):
+          nDefRes[k].append(res)
+    return nDefRes
+
   def getMappedResidues(self, num):
     '''Returns a dictionary {'active': [], 'passive': []} with the mapped numbers of the defined residues
     '''
     mapDic = {'active': [], 'passive': []}
     resNumDic = self.getResNumPerChain(num)
     defRes = self.parseDefinedRes(num)
+    defRes = self.filterSASA(defRes, num)
+
     for k in defRes:
       for res in defRes[k]:
         chain, resnum = res.split('_')
@@ -186,6 +214,13 @@ class ProtHaddockPrediction(EMProtocol):
           f.write(f'\n\tor\n'.join(actStrs + pasStrs))
           f.write(f'\n\t)  2.0 2.0 0.0\n!\n')
 
+
+  def calculateFreeSASA(self, num):
+    inFile = self.getInputFile(num)
+    oFile = self._getExtraPath(f'input_{num}_SASA.txt')
+    args = f'{os.path.abspath(inFile)} {os.path.abspath(oFile)}'
+    haddockPlugin.runScript(self, 'calculateFreeSASA.py', args, HADDOCK_DIC, cwd=self._getExtraPath())
+    return oFile
 
   def defineRestrictionsStep(self):
     for num in range(1, 3):
