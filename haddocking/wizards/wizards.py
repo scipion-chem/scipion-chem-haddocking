@@ -28,10 +28,64 @@
 """
 """
 
-from pwchem.wizards import SelectChainWizardQT
-from ..protocols import ProtCPORTPrediction
+from pwchem.wizards import SelectChainWizardQT, SelectResidueWizardQT, SelectElementWizard, AddElementWizard
+from ..protocols import ProtCPORTPrediction, ProtHaddockPrediction
 
 SelectChainWizardQT().addTarget(protocol=ProtCPORTPrediction,
-                              targets=['chain_name'],
-                              inputs=['inputAtomStruct'],
-                              outputs=['chain_name'])
+                                targets=['chain_name'],
+                                inputs=['inputAtomStruct'],
+                                outputs=['chain_name'])
+
+SelectElementWizard().addTarget(protocol=ProtHaddockPrediction,
+                                targets=['restrROI_1'],
+                                inputs=['restrROIs_1'],
+                                outputs=['restrROI_1'])
+SelectElementWizard().addTarget(protocol=ProtHaddockPrediction,
+                                targets=['restrROI_2'],
+                                inputs=['restrROIs_2'],
+                                outputs=['restrROI_2'])
+
+SelectChainWizardQT().addTarget(protocol=ProtHaddockPrediction,
+                                targets=['chain_name_1'],
+                                inputs=['inputAtomStruct_1'],
+                                outputs=['chain_name_1'])
+SelectChainWizardQT().addTarget(protocol=ProtHaddockPrediction,
+                                targets=['chain_name_2'],
+                                inputs=['inputAtomStruct_2'],
+                                outputs=['chain_name_2'])
+
+SelectResidueWizardQT().addTarget(protocol=ProtHaddockPrediction,
+                                  targets=['restrMan_1'],
+                                  inputs=['inputAtomStruct_1', 'chain_name_1'],
+                                  outputs=['restrMan_1'])
+SelectResidueWizardQT().addTarget(protocol=ProtHaddockPrediction,
+                                  targets=['restrMan_2'],
+                                  inputs=['inputAtomStruct_2', 'chain_name_2'],
+                                  outputs=['restrMan_2'])
+
+
+class AddRestraintWizard(AddElementWizard):
+  """Add the content of a parameter to another"""
+  _targets, _inputs, _outputs = [], {}, {}
+
+  def show(self, form, *params):
+    inputParam, outputParam = self.getInputOutput(form)
+    protocol = form.protocol
+    outIdx = getattr(protocol, inputParam[0]).get()  # 0 == active, 1 == passive
+
+    prevList = self.curePrevList(getattr(protocol, outputParam[outIdx]).get())
+    num = outputParam[outIdx].split('_')[-1]
+    newLine = protocol.createElementLine(num)
+
+    form.setVar(outputParam[outIdx], prevList.replace('\n', ',') + newLine)
+
+AddRestraintWizard().addTarget(protocol=ProtHaddockPrediction,
+                               targets=['addRestraint_1'],
+                               inputs=['restrType_1'],
+                               outputs=['activeRestr_1', 'passiveRestr_1'])
+AddRestraintWizard().addTarget(protocol=ProtHaddockPrediction,
+                               targets=['addRestraint_2'],
+                               inputs=['restrType_2'],
+                               outputs=['activeRestr_2', 'passiveRestr_2'])
+
+

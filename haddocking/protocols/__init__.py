@@ -25,4 +25,5 @@
 # **************************************************************************
 
 from .protocol_cport_prediction import ProtCPORTPrediction
+from .protocol_haddock import ProtHaddockPrediction
 
