@@ -103,15 +103,14 @@ class ProtHaddockPrediction(EMProtocol):
   def createElementLine(self, num=1):
     if getattr(self, f'restrSource{num}').get() == 0:
       inROI = self.getInputROI(num)
-      inRes = inROI.getDecodedCResidues()
-      rStr = ','.join(inRes)
+      rList = inROI.getDecodedCResidues()
 
     else:
       inChain, inRes = getattr(self, f'chain_name_{num}').get(), getattr(self, f'restrMan_{num}').get()
       chName = json.loads(inChain)['chain']
       resIdxs = list(map(int, json.loads(inRes)['index'].split('-')))
-      rStr = ','.join([f'{chName}_{i}' for i in range(resIdxs[0], resIdxs[1] + 1)])
-    return rStr
+      rList = [f'{chName}_{i}' for i in range(resIdxs[0], resIdxs[1] + 1)]
+    return rList
 
   def _insertAllSteps(self):
     self._insertFunctionStep(self.defineRestrictionsStep)

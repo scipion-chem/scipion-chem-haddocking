@@ -75,9 +75,11 @@ class AddRestraintWizard(AddElementWizard):
 
     prevList = self.curePrevList(getattr(protocol, outputParam[outIdx]).get())
     num = outputParam[outIdx].split('_')[-1]
-    newLine = protocol.createElementLine(num)
+    newList = protocol.createElementLine(num)
 
-    form.setVar(outputParam[outIdx], prevList.replace('\n', ',') + newLine)
+    prevList = prevList.strip().split(',')
+    prevList = [i for i in prevList if i != '']
+    form.setVar(outputParam[outIdx], ','.join(prevList + newList))
 
 AddRestraintWizard().addTarget(protocol=ProtHaddockPrediction,
                                targets=['addRestraint_1'],
