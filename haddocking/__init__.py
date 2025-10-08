@@ -152,6 +152,17 @@ class Plugin(pwchemPlugin):
 		os.rename(outPath, protocol.getOutputDir())
 
 	@classmethod
+	def runHaddock(cls, protocol, program, args, cwd, popen=False):
+		""" Run HADDOCK commands from a given protocol. """
+		fullProgram = f'{cls.getEnvActivationCommand(HADDOCK_DIC)} && {program} '
+		if not popen:
+			protocol.runJob(fullProgram, args, env=cls.getEnviron(), cwd=cwd)
+		else:
+			res = sp.check_output(f'{fullProgram} {args}', cwd=cwd, shell=True, text=True)
+			return res
+
+
+	@classmethod
 	def checkVarPath(cls, softDic, var='home'):
 		'''Check if a plugin variable exists and so do its path'''
 		exists = False

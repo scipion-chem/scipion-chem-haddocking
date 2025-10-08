@@ -25,17 +25,18 @@
 # **************************************************************************
 
 import json, os, shutil
-from Bio.PDB.PDBParser import PDBParser
+from Bio.PDB import PDBParser, MMCIFParser
 
 from pyworkflow.protocol import params
 from pwem.protocols import EMProtocol
+from pwem.objects import SetOfAtomStructs, AtomStruct
 
-from pwchem.utils import clusterSurfaceCoords, createPocketFile
-from pwchem.objects import StructROI, SetOfStructROIs
+from pwchem.utils import clusterSurfaceCoords, createPocketFile, getBaseName, pdbFromAS, getBaseFileName, natural_sort
 
-from ..constants import HADDOCK_DIC
+from ..constants import HADDOCK_DIC, DEF_PROTOCOL
 from .. import Plugin as haddockPlugin
 
+FROM_ACTIVE = 'From active'
 
 class ProtHaddockPrediction(EMProtocol):
   """Run protein-protein interaction predictions using HADDOCK3 software from Bonvin Lab"""
@@ -46,13 +47,43 @@ class ProtHaddockPrediction(EMProtocol):
     for i in range(1, 3):
       form = self._defineInputParams(form, i)
 
-    form.addSection(label='Restraints')
+    # todo: optional: create unambiguous restraints
+    # form.addSection(label='Specific restraints')
+    # self._defineSpecificRestraints(form)
+
+    form.addSection(label='Ambiguous restraints')
     form.addParam(f'filterSurface', params.FloatParam, default=0.15,
                   label=f'Minimum surface accessibility: ',
                   help=f'Filter the defined restraint residues for a minimum surface accessibility')
 
     for i in range(1, 3):
-      form = self._defineRestraints(form, i)
+      form = self._defineAmbRestraints(form, i)
+
+    form.addSection(label='Execution workflow')
+    form.addParam(f'workFlowType', params.EnumParam, label='Define workflow: ',
+                    choices=['Default', 'Manually'], default=0, display=params.EnumParam.DISPLAY_HLIST,
+                    help="Whether to use the default workflow (rigidDock+selection+flexDock+energyMin+analysis) or "
+                         "one manually defined (not available yet)")
+
+    iGroup = form.addGroup(f'Rigid docking')
+    iGroup.addParam('sampling', params.IntParam, default=20, label='Number of generated models: ',
+                    help='Number of generated models with rigid body fitting.'
+                         'Rigid body energy minimization with CNS')
+
+    sGroup = form.addGroup(f'Selection')
+    sGroup.addParam('selected', params.IntParam, default=10, label='Number of selected models: ',
+                    help='Number of selected models from the previous step')
+
+    sGroup = form.addGroup(f'Flexible refinement/Energy minimization')
+    sGroup.addParam('tolerance', params.IntParam, default=5, label='Failure tolerance percentage: ',
+                    help='Percentage of allowed failures for a module to successfully complete')
+
+    sGroup = form.addGroup(f'Clustering')
+    sGroup.addParam('nFromCluster', params.IntParam, default=4, label='Number of models per cluster: ',
+                    help='Selection of the top x best scoring complexes from each cluster')
+
+
+    form.addParallelSection(threads=4, mpi=1)
 
 
   def _defineInputParams(self, form, num=1):
@@ -62,11 +93,30 @@ class ProtHaddockPrediction(EMProtocol):
                     help="Input AtomStruct to predict the interaction on")
     return form
 
-  def _defineRestraints(self, form, num=1):
-    rGroup = form.addGroup(f'Restraints_{num}')
+  def _defineSpecificRestraints(self, form):
+    rGroup = form.addGroup(f'Specific distance restraints')
+    for num in range(1, 3):
+      rGroup = self._defineSelectionParams(rGroup, num, atomCond='True', specName='_spec')
+
+  def _defineSelectionParams(self, group, num, cond='True', atomCond='False', specName=''):
+    group.addParam(f'chain_name{specName}_{num}', params.StringParam, label=f'Chain of interest {num}', condition=cond,
+                   help='Specify the chain of the structure of interest')
+    group.addParam(f'restrRes{specName}_{num}', params.StringParam, label=f'Residue(s) of interest {num}: ',
+                   condition=cond,
+                   help=f"Select a list of residues of ambiguous restraints in {num} or a single residue to "
+                        f"define specific atom restraints")
+
+    group.addParam(f'restrAtom{specName}_{num}', params.StringParam, label=f'Atom of interest {num}: ',
+                   condition=f'{cond} and {atomCond}',
+                   help=f"Select an atom to define specific restraints for input {num}")
+    return group
+
+
+  def _defineAmbRestraints(self, form, num=1):
+    rGroup = form.addGroup(f'Ambiguous restraints_{num}')
     rGroup.addParam(f'restrType_{num}', params.EnumParam, label=f'Restraints type {num}: ',
                     choices=['Active', 'Passive'], default=0, display=params.EnumParam.DISPLAY_HLIST,
-                    help=f"Type of defining restraints for input {num}")
+                    help=f"Type of restraints to define for input {num}")
     rGroup.addParam(f'restrSource{num}', params.EnumParam, label=f'Define restraints {num} from: ',
                     choices=['Structural ROI', 'Manual'], default=0, display=params.EnumParam.DISPLAY_HLIST,
                     help=f"Source of restraints for input {num}")
@@ -77,21 +127,18 @@ class ProtHaddockPrediction(EMProtocol):
                     condition=f'restrSource{num}==0',
                     help=f"Input ROIs active restraints for input {num}")
 
-    rGroup.addParam(f'chain_name_{num}', params.StringParam, label=f'Chain of interest {num}',
-                    condition=f'restrSource{num}==1',
-                    help='Specify the chain of the structure of interest')
-    rGroup.addParam(f'restrMan_{num}', params.StringParam, label=f'Active manual restraints {num}: ',
-                    condition=f'restrSource{num}==1',
-                    help=f"Manual active restraints for input {num}")
+    rGroup = self._defineSelectionParams(rGroup, num, cond=f'restrSource{num}==1')
 
     rGroup.addParam(f'addRestraint_{num}', params.LabelParam, label=f'Add defined restraints {num}',
                     help=f'Add defined active restraints for input {num}')
     rGroup.addParam(f'activeRestr_{num}', params.TextParam, width=70, height=2, default='',
                     label=f'Active restraints summary {num}: ',
                     help=f'Summary of the active restraints defined for input {num}')
-    rGroup.addParam(f'passiveRestr_{num}', params.TextParam, width=70, height=3, default='',
+    rGroup.addParam(f'passiveRestr_{num}', params.TextParam, width=70, height=3, default=f'{FROM_ACTIVE}\n',
                     label=f'Passive restraints summary {num}: ',
-                    help=f'Summary of the passive restraints defined for input {num}')
+                    help=f'Summary of the passive restraints defined for input {num}.'
+                         f'{FROM_ACTIVE} will automatically define those residues close to the active ones defined.'
+                         f'You can be delete and define residues manually or add further passive residues')
     return form
 
   def getInputROI(self, num=1):
@@ -106,48 +153,138 @@ class ProtHaddockPrediction(EMProtocol):
       rList = inROI.getDecodedCResidues()
 
     else:
-      inChain, inRes = getattr(self, f'chain_name_{num}').get(), getattr(self, f'restrMan_{num}').get()
+      inChain, inRes = getattr(self, f'chain_name_{num}').get(), getattr(self, f'restrRes_{num}').get()
       chName = json.loads(inChain)['chain']
       resIdxs = list(map(int, json.loads(inRes)['index'].split('-')))
       rList = [f'{chName}_{i}' for i in range(resIdxs[0], resIdxs[1] + 1)]
     return rList
 
   def _insertAllSteps(self):
+    self._insertFunctionStep(self.convertStep)
     self._insertFunctionStep(self.defineRestrictionsStep)
     self._insertFunctionStep(self.predictStep)
-    self._insertFunctionStep(self.definePocketsStep)
     self._insertFunctionStep(self.defineOutputStep)
+  
+  ############### STEP FUNCTIONS #################### 
+  
+  def convertStep(self):
+    for num in range(1, 3):
+      pdbFromAS(self.getInputStruct(num), self.getPDBFile(num))
+  
+  def defineRestrictionsStep(self):
+    for num in range(1, 3):
+      self.createMergedPDB(num)
 
-  def getInputFile(self, num):
-    return os.path.abspath(getattr(self, f'inputAtomStruct_{num}').get().getFileName())
+    # Create restraint files to keep the chains of each input together
+    self.restraintChains()
+    self.createRestraintsFile()
+  
+  def predictStep(self):
+    confFile = self.buildConfFile()
+    haddockPlugin.runHaddock(self, 'haddock3', confFile, cwd=self._getExtraPath())
 
-  def getMergedFile(self, num):
-    return os.path.abspath(self._getExtraPath(f'inputFile_{num}.pdb'))
+  def defineOutputStep(self):
 
+    modelFiles = self.getOutputModelFiles()
+    outSet = SetOfAtomStructs.create(self._getPath())
+    for mFile in modelFiles:
+        scoresDic = self.parseOutputFile(mFile)
+
+        outAS = AtomStruct(filename=mFile)
+        for scoreName, score in scoresDic.items():
+            setattr(outAS, scoreName, params.Float(score))
+
+        outSet.append(outAS.clone())
+
+    self._defineOutputs(**{'outputStructures': outSet})
+
+    a = b
+
+
+  ############### MAIN FUNCTIONS #################### 
+  
   def createMergedPDB(self, num):
     # Creating merged chains file needed for HADDOCK
-    segId = 'A' if num == 1 else 'B'
-    inFile, mergedFile = self.getInputFile(num), self.getMergedFile(num)
+    segId = self.getSegId(num)
+    inFile, mergedFile = self.getPDBFile(num), self.getMergedFile(num)
 
     mergeArgs = f'pdb_chain -{segId} {inFile} | pdb_reres -1 > {mergedFile}'
     haddockPlugin.runScript(self, '', mergeArgs, HADDOCK_DIC, scriptDir='', pyStr='')
     return mergedFile
+  
+  def restraintChains(self):
+    oStr = ''
+    for num in range(1,3):
+      mFile = self.getMergedFile(num)
+      oStr += haddockPlugin.runHaddock(self, 'haddock3-restraints restrain_bodies ', mFile,
+                                      cwd=self._getExtraPath(), popen=True).strip() + '\n'
 
-  def getResNumPerChain(self, num):
-    '''Returns a dictionary with the number of residues per chain in the model
+    if oStr:
+      with open(self.getChainRestrainstsFile(), 'w') as f:
+        f.write(oStr)
+  
+  def createRestraintsFile(self):
+    mapRes, segIds = {}, ['A', 'B']
+    for i in range(2):
+      mapRes[segIds[i]] = self.getMappedResidues(i+1)
+
+    rFile = self.getAmbRestrFile()
+    with open(rFile, 'w') as f:
+      for i in range(2):
+        segId1, segId2 = segIds[i], segIds[i-1]
+        f.write(f'! HADDOCK AIR restraints for partner {segId1}\n!\n')
+        for actNum in mapRes[segId1]['active']:
+          f.write(f'assign ( resid {actNum} and segid {segId1})\n\t(\n')
+          actStrs = [f'\t ( resid {actNum} and segid {segId2})' for actNum in mapRes[segId2]['active']]
+          pasStrs = [f'\t ( resid {pasNum} and segid {segId2})' for pasNum in mapRes[segId2]['passive']]
+          f.write(f'\n\tor\n'.join(actStrs + pasStrs))
+          f.write(f'\n\t)  2.0 2.0 0.0\n!\n')
+  
+  def getMappedResidues(self, num):
+    '''Returns a dictionary {'active': [], 'passive': []} with the mapped numbers of the defined residues
     '''
-    resNumDic = {}
-    structModel = PDBParser().get_structure('receptor', self.getInputFile(num))[0]
-    for chain in structModel.get_chains():
-      resNumDic[chain.get_id()] = len(list(chain.get_residues()))
-    return resNumDic
+    restrDic = self.parseDefinedRes(num)
+    restrDic = self.filterSASA(restrDic, num)
+    return restrDic
 
+  def buildConfFile(self):
+    confFile = self.getConfFile()
+    cwd = self.getRunDir()
+
+    nCores = self.numberOfThreads.get() - 1 if self.numberOfThreads.get() > 1 else 1
+    inFile1, inFile2 = self.getMergedFile(1), self.getMergedFile(2)
+    tol = self.tolerance.get()
+    ambRestrFile, unambRestrFile = self.getAmbRestrFile(), self.getChainRestrainstsFile()
+    sampling, select = self.sampling.get(), self.selected.get()
+    nPerCluster = self.nFromCluster.get()
+    confStr = DEF_PROTOCOL.format(cwd, nCores, inFile1, inFile2, ambRestrFile, unambRestrFile, sampling, select,
+                                  tol, ambRestrFile, unambRestrFile, tol, ambRestrFile, unambRestrFile, nPerCluster)
+    with open(confFile, 'w') as f:
+      f.write(confStr)
+    return confFile
+
+
+  ############### PARSER FUNCTIONS ####################
+  
   def parseDefinedRes(self, num):
     '''Returns a dictionary {'active': [], 'passive': []} with the defined active and passive residues.
     Residues present in both lists are deleted from passive
     '''
-    act, pas = getattr(self, f'activeRestr_{num}').get().strip().split(','), \
-               getattr(self, f'passiveRestr_{num}').get().strip().split(',')
+    mapDic = self.buildMapDic(num)
+    actStr, pasStr = getattr(self, f'activeRestr_{num}').get().strip(), \
+                     getattr(self, f'passiveRestr_{num}').get().strip()
+
+    act = [mapDic[s] for line in actStr.split('\n') for s in line.split(',')]
+    pas = [mapDic[s] for line in pasStr.split('\n') for s in line.split(',') if s != FROM_ACTIVE]
+
+    if FROM_ACTIVE in pasStr:
+        segId = self.getSegId(num)
+        mergedFile = self.getMergedFile(num)
+        args = f'{mergedFile} -c {segId} {",".join(act)}'
+        nPas = haddockPlugin.runHaddock(self, 'haddock3-restraints passive_from_active ', args,
+                                        cwd=self._getExtraPath(), popen=True).split()
+        pas = list(set(pas).union(set(nPas))) if pas else nPas
+
     pas = list(set(pas).difference(set(act)))
     return {'active': act, 'passive': pas}
 
@@ -160,145 +297,115 @@ class ProtHaddockPrediction(EMProtocol):
         sasaDic[sline[0]] = [sline[2], sline[3]]
     return sasaDic
 
+  def parseOutputFile(self, mFile):
+    sDic = {}
+    with open(mFile) as f:
+        for line in f:
+            if line.startswith('REMARK HADDOCK score:'):
+                sDic['HaddockScore'] = float(line.split()[-1])
+            elif line.startswith('REMARK Binding energy:'):
+                sDic['BindingEnergy'] = float(line.split()[-1])
+            elif line.startswith('REMARK buried surface area:'):
+                sDic['BuriedSurfaceArea'] = float(line.split()[-1])
+    return sDic
+
+
+  ############### UTIL FUNCTIONS ####################
+
+  def getSegId(self, num):
+    return 'A' if num == 1 else 'B'
+
+  def calculateFreeSASA(self, num):
+    inFile = self.getMergedFile(num)
+    oFile = self._getExtraPath(f'input_{num}_SASA.txt')
+    args = f'{os.path.abspath(inFile)} {os.path.abspath(oFile)}'
+    haddockPlugin.runScript(self, 'calculateFreeSASA.py', args, HADDOCK_DIC, cwd=self._getExtraPath())
+    return oFile
+
   def filterSASA(self, defRes, num):
-    sasaFile = self.calculateFreeSASA(num)
-    sasaDic = self.parseSASAFile(sasaFile)
+    segId = self.getSegId(num)
+    sasaDic = self.parseSASAFile(self.calculateFreeSASA(num))
     minSASA = self.filterSurface.get()
 
     nDefRes = {}
     for k in defRes:
       nDefRes[k] = []
       for res in defRes[k]:
-        if float(sasaDic[res][0]) >= minSASA or (sasaDic[res][1] != 'nan' and float(sasaDic[res][1]) >= minSASA):
-          nDefRes[k].append(res)
+        if res.strip():
+          resId = f'{segId}_{res}'
+          if float(sasaDic[resId][0]) >= minSASA or \
+                  (sasaDic[resId][1] != 'nan' and float(sasaDic[resId][1]) >= minSASA):
+            nDefRes[k].append(res)
+
+    for k in nDefRes:
+      nDefRes[k].sort()
     return nDefRes
 
-  def getMappedResidues(self, num):
-    '''Returns a dictionary {'active': [], 'passive': []} with the mapped numbers of the defined residues
+  def buildMapDic(self, num):
+    '''Returns a dictionary with the mapped residues from the original to the merged form
+    {"ori_Id": "mergeId"}
     '''
-    mapDic = {'active': [], 'passive': []}
-    resNumDic = self.getResNumPerChain(num)
-    defRes = self.parseDefinedRes(num)
-    defRes = self.filterSASA(defRes, num)
+    resNumDic = {}
+    inASFile = self.getInputFile(num)
+    parser = PDBParser if inASFile.endswith('.pdb') else MMCIFParser
+    structModel = parser().get_structure(getBaseName(inASFile), inASFile)[0]
 
-    for k in defRes:
-      for res in defRes[k]:
-        chain, resnum = res.split('_')
-        c = 0
-        for mChain in resNumDic:
-          if mChain == chain:
-            c += int(resnum)
-            break
-          else:
-            c += resNumDic[mChain]
-
-        mapDic[k].append(c)
-      mapDic[k].sort()
-    return mapDic
-
-  def createRestraintsFile(self):
-    mapDic, segIds = {}, ['A', 'B']
-    for i in range(2):
-      mapDic[segIds[i]] = self.getMappedResidues(i+1)
-
-    rFile = self._getExtraPath(f'restraints.tbl')
-    with open(rFile, 'w') as f:
-      for i in range(2):
-        segId1, segId2 = segIds[i], segIds[i-1]
-        f.write(f'! HADDOCK AIR restraints for partner {segId1}\n!\n')
-        for actNum in mapDic[segId1]['active']:
-          f.write(f'assign ( resid {actNum} and segid {segId1})\n\t(\n')
-          actStrs = [f'\t ( resid {actNum} and segid {segId2})' for actNum in mapDic[segId2]['active']]
-          pasStrs = [f'\t ( resid {pasNum} and segid {segId2})' for pasNum in mapDic[segId2]['passive']]
-          f.write(f'\n\tor\n'.join(actStrs + pasStrs))
-          f.write(f'\n\t)  2.0 2.0 0.0\n!\n')
+    c = 1
+    for chain in structModel.get_chains():
+      for res in chain.get_residues():
+        resNumDic[f'{chain.get_id()}_{res.get_id()[1]}'] = str(c)
+        c += 1
+    return resNumDic
 
 
-  def calculateFreeSASA(self, num):
-    inFile = self.getInputFile(num)
-    oFile = self._getExtraPath(f'input_{num}_SASA.txt')
-    args = f'{os.path.abspath(inFile)} {os.path.abspath(oFile)}'
-    haddockPlugin.runScript(self, 'calculateFreeSASA.py', args, HADDOCK_DIC, cwd=self._getExtraPath())
-    return oFile
+  ############### FILES FUNCTIONS ####################
+  
+  def getInputStruct(self, num):
+    return getattr(self, f'inputAtomStruct_{num}').get()
 
-  def defineRestrictionsStep(self):
-    for num in range(1, 3):
-      self.createMergedPDB(num)
+  def getInputFile(self, num):
+    return os.path.abspath(self.getInputStruct(num).getFileName())
 
-    self.createRestraintsFile()
+  def getPDBFile(self, num):
+    pdbFile = getBaseFileName(self.getInputFile(num)).replace('.cif', '.pdb')
+    return os.path.abspath(self._getExtraPath(pdbFile))
 
+  def getMergedFile(self, num):
+    return os.path.abspath(self._getExtraPath(f'inputFile_{num}.pdb'))
 
-  def predictStep(self):
-    inFile = self.getInputPDBFile()
-    chainStr = json.loads(self.chain_name.get())['chain']
+  def getChainRestrainstsFile(self):
+    return os.path.abspath(self._getExtraPath(f'chainRestraints.tbl'))
 
-    args = f'{inFile} {chainStr}'
-    haddockPlugin.runCPORT(self, args)
+  def getAmbRestrFile(self):
+    return os.path.abspath(self._getExtraPath(f'restraints.tbl'))
 
-  def definePocketsStep(self):
-    self.coordsClusters = []
-    outRes = self.parseMLOutput(self.threshold.get())
-    pocketCoords = self.getOutputCoords(outRes)
-    if self.surfaceCoords:
-      pocketCoords = self.mapSurfaceCoords(pocketCoords)
+  def getRunDir(self):
+      return os.path.abspath(self._getExtraPath('execution'))
 
-    self.coordsClusters += clusterSurfaceCoords(pocketCoords, self.maxIntraDistance.get())
+  def getConfFile(self):
+    return os.path.abspath(self._getExtraPath('confFile.txt'))
 
-  def defineOutputStep(self):
-    inpStruct = self.inputAtomStruct.get()
-    pdbFile = self.getProteinFileName()
-    newPDBFile = self._getPath(os.path.basename(pdbFile))
-    shutil.copy(pdbFile, newPDBFile)
+  def getOutputModelFiles(self):
+    runDir = self.getRunDir()
+    oDirs = [os.path.join(runDir, oDir) for oDir in os.listdir(runDir) if len(oDir.split('_')) == 2]
+    oDirs = natural_sort(oDirs, rev=True)
 
-    outPockets = SetOfStructROIs(filename=self._getPath('StructROIs.sqlite'))
-    for i, clust in enumerate(self.coordsClusters):
-      pocketFile = createPocketFile(clust, i, outDir=self._getExtraPath())
-      pocket = StructROI(pocketFile, newPDBFile)
-      if str(type(inpStruct).__name__) == 'SchrodingerAtomStruct':
-        pocket._maeFile = params.String(os.path.relpath(inpStruct.getFileName()))
-      pocket.calculateContacts()
-      outPockets.append(pocket)
-
-    if len(outPockets) > 0:
-      outPockets.buildPDBhetatmFile()
-      self._defineOutputs(outputStructROIs=outPockets)
+    mFiles, i = [], 0
+    while i < len(oDirs):
+        oDir = oDirs[i]
+        for file in os.listdir(oDir):
+            if file.endswith('.pdb'):
+                mFiles.append(os.path.join(oDir, file))
+                i = len(oDirs)
+        i += 1
+    return mFiles
 
 
-  ################# UTIL FUNCTIONS ##############################
-
-  def getOutputCoords(self, outRes):
-    chainId = json.loads(self.chain_name.get())['chain']
-    structModel = PDBParser().get_structure('receptor', self.getInputPDBFile())[0]
-
-    oCoords = []
-    for i, res in enumerate(structModel[chainId].get_residues()):
-      if str(i+1) in outRes:
-        for a in res.get_atoms():
-          oCoords.append(list(a.get_coord()))
-    return oCoords
 
 
-  def getOutputDir(self):
-    return self._getPath('cportOutput')
 
-  def getOutputMLFile(self):
-    outDir = self.getOutputDir()
-    for file in os.listdir(outDir):
-      if file.startswith('cport_ML'):
-        return os.path.join(outDir, file)
 
-  def parseMLOutput(self, threshold=0.6):
-    '''Parses the output of CPORT and returns a list with the residues over the threshold
-    '''
-    outRes, outFile = [], self.getOutputMLFile()
-    with open(outFile) as f:
-      f.readline()
-      for line in f:
-        sline = line.split(',')
-        resID, score = sline[1:3]
-        if float(score) >= threshold:
-          outRes.append(resID)
-    return outRes
+  ############### MANAGER FUNCTIONS ####################
 
   def _validate(self):
     errors = []

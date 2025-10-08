@@ -45,3 +45,76 @@ LIGHTDOCK_DIC = {'name': 'LightDock',    'version': '1.0', 'url': 'https://githu
                  'home': 'LIGHTDOCK_HOME'}
 
 
+DEF_PROTOCOL = '''# ====================================================================
+# Antibody-antigen docking example with restraints from the antibody
+# paratope to the NMR-identified epitope on the antigen 
+# ====================================================================
+
+# Directory in which the scoring will be done
+run_dir = "{}"
+
+# Compute mode
+mode = "local"
+ncores = {}
+
+# Self contained rundir (to avoid problems with long filename paths)
+self_contained = true
+
+# Post-processing to generate statistics and plots
+postprocess = true
+clean = false
+
+molecules =  [
+    "{}",
+    "{}"
+    ]
+
+# ====================================================================
+# Parameters for each stage are defined below, prefer full paths
+# ====================================================================
+[topoaa]
+
+[rigidbody]
+# CDR to NMR epitope ambig restraints
+ambig_fname = "{}"
+# Restraints to keep the antibody chains together
+unambig_fname = "{}"
+# Reduced sampling (100 instead of the default of 1000)
+sampling = {}
+
+[caprieval]
+
+[seletop]
+# Selection of the top 50 best scoring complexes (instead of the default of 200)
+select = {}
+
+[flexref]
+tolerance = {}
+# CDR to NMR epitope ambig restraints
+ambig_fname = "{}"
+# Restraints to keep the antibody chains together
+unambig_fname = "{}"
+
+[caprieval]
+
+[emref]
+tolerance = {}
+# CDR to NMR epitope ambig restraints
+ambig_fname = "{}"
+# Restraints to keep the antibody chains together
+unambig_fname = "{}"
+
+[caprieval]
+
+[clustfcc]
+plot_matrix = true
+
+[seletopclusts]
+# Selection of the top 4 best scoring complexes from each cluster
+top_models = {}
+
+[caprieval]
+
+[contactmap]
+
+# ===================================================================='''

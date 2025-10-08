@@ -28,7 +28,8 @@
 """
 """
 
-from pwchem.wizards import SelectChainWizardQT, SelectResidueWizardQT, SelectElementWizard, AddElementWizard
+from pwchem.wizards import SelectChainWizardQT, SelectResidueWizardQT, SelectElementWizard, AddElementWizard, \
+  SelectAtomWizardQT
 from ..protocols import ProtCPORTPrediction, ProtHaddockPrediction
 
 SelectChainWizardQT().addTarget(protocol=ProtCPORTPrediction,
@@ -45,6 +46,7 @@ SelectElementWizard().addTarget(protocol=ProtHaddockPrediction,
                                 inputs=['restrROIs_2'],
                                 outputs=['restrROI_2'])
 
+# Ambiguous restraints
 SelectChainWizardQT().addTarget(protocol=ProtHaddockPrediction,
                                 targets=['chain_name_1'],
                                 inputs=['inputAtomStruct_1'],
@@ -55,13 +57,39 @@ SelectChainWizardQT().addTarget(protocol=ProtHaddockPrediction,
                                 outputs=['chain_name_2'])
 
 SelectResidueWizardQT().addTarget(protocol=ProtHaddockPrediction,
-                                  targets=['restrMan_1'],
+                                  targets=['restrRes_1'],
                                   inputs=['inputAtomStruct_1', 'chain_name_1'],
-                                  outputs=['restrMan_1'])
+                                  outputs=['restrRes_1'])
 SelectResidueWizardQT().addTarget(protocol=ProtHaddockPrediction,
-                                  targets=['restrMan_2'],
+                                  targets=['restrRes_2'],
                                   inputs=['inputAtomStruct_2', 'chain_name_2'],
-                                  outputs=['restrMan_2'])
+                                  outputs=['restrRes_2'])
+
+# Specific restraints
+SelectChainWizardQT().addTarget(protocol=ProtHaddockPrediction,
+                                targets=['chain_name_spec_1'],
+                                inputs=['inputAtomStruct_1'],
+                                outputs=['chain_name_spec_1'])
+SelectChainWizardQT().addTarget(protocol=ProtHaddockPrediction,
+                                targets=['chain_name_spec_2'],
+                                inputs=['inputAtomStruct_2'],
+                                outputs=['chain_name_spec_2'])
+SelectResidueWizardQT().addTarget(protocol=ProtHaddockPrediction,
+                                  targets=['restrRes_spec_1'],
+                                  inputs=['inputAtomStruct_1', 'chain_name_spec_1'],
+                                  outputs=['restrRes_spec_1'])
+SelectResidueWizardQT().addTarget(protocol=ProtHaddockPrediction,
+                                  targets=['restrRes_spec_2'],
+                                  inputs=['inputAtomStruct_2', 'chain_name_spec_2'],
+                                  outputs=['restrRes_spec_2'])
+SelectAtomWizardQT().addTarget(protocol=ProtHaddockPrediction,
+                               targets=['restrAtom_spec_1'],
+                               inputs=['inputAtomStruct_1', 'chain_name_spec_1', 'restrRes_spec_1'],
+                               outputs=['restrAtom_spec_1'])
+SelectAtomWizardQT().addTarget(protocol=ProtHaddockPrediction,
+                               targets=['restrAtom_spec_2'],
+                               inputs=['inputAtomStruct_2', 'chain_name_spec_2', 'restrRes_spec_2'],
+                               outputs=['restrAtom_spec_2'])
 
 
 class AddRestraintWizard(AddElementWizard):
