@@ -91,7 +91,7 @@ class ProtHaddockPrediction(EMProtocol):
                     help='Percentage of allowed failures for a module to successfully complete')
 
     scGroup = form.addGroup(f'Cluster selection', condition=self.getManualCondition([SELCLUST]))
-    scGroup.addParam('selectCluster', params.IntParam, default=10, label='Number of selected clusters: ',
+    scGroup.addParam('selectCluster', params.IntParam, default=5, label='Number of selected clusters: ',
                      help='Number of selected clusters with best scores from the previous step')
 
     form.addParam(f'addStep', params.LabelParam, label='Add defined step: ',
