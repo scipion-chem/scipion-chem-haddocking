@@ -29,7 +29,7 @@
 """
 
 from pwchem.wizards import SelectChainWizardQT, SelectResidueWizardQT, SelectElementWizard, AddElementWizard, \
-  SelectAtomWizardQT
+  SelectAtomWizardQT, AddNumberedElementWizard
 from ..protocols import ProtCPORTPrediction, ProtHaddockPrediction
 
 SelectChainWizardQT().addTarget(protocol=ProtCPORTPrediction,
@@ -117,5 +117,10 @@ AddRestraintWizard().addTarget(protocol=ProtHaddockPrediction,
                                targets=['addRestraint_2'],
                                inputs=['restrType_2'],
                                outputs=['activeRestr_2', 'passiveRestr_2'])
+
+AddNumberedElementWizard().addTarget(protocol=ProtHaddockPrediction,
+                                      targets=['addStep'],
+                                      inputs=['createStepLine'],
+                                      outputs=['workflowSum'])
 
 

@@ -24,23 +24,28 @@
 # *
 # **************************************************************************
 
-import json, os, shutil
+import json, os
 from Bio.PDB import PDBParser, MMCIFParser
 
 from pyworkflow.protocol import params
 from pwem.protocols import EMProtocol
 from pwem.objects import SetOfAtomStructs, AtomStruct
 
-from pwchem.utils import clusterSurfaceCoords, createPocketFile, getBaseName, pdbFromAS, getBaseFileName, natural_sort
+from pwchem.utils import clusterSurfaceCoords, createPocketFile, getBaseName, pdbFromAS, getBaseFileName, \
+  natural_sort, gunzipFile
 
-from ..constants import HADDOCK_DIC, DEF_PROTOCOL
+from ..constants import HADDOCK_DIC, DEF_PROTOCOL, HADDOCK_HEADER
 from .. import Plugin as haddockPlugin
 
 FROM_ACTIVE = 'From active'
+RIGDOC, FLEXREF, EMMIN, CLUST, SELMOD, SELCLUST, CAPRI, CONTACT = list(range(8))
+
 
 class ProtHaddockPrediction(EMProtocol):
   """Run protein-protein interaction predictions using HADDOCK3 software from Bonvin Lab"""
   _label = 'HADDOCK protein interaction prediction'
+  _haddockSteps = ['Rigid docking', 'Flexible refinement', 'Energy minimization', 'Clustering FCC',
+   'Select top models', 'Select top clusters', 'CAPRI evaluation', 'Contact analysis']
 
   def _defineParams(self, form):
     form.addSection(label='Input')
@@ -60,31 +65,50 @@ class ProtHaddockPrediction(EMProtocol):
       form = self._defineAmbRestraints(form, i)
 
     form.addSection(label='Execution workflow')
-    form.addParam(f'workFlowType', params.EnumParam, label='Define workflow: ',
+    form.addParam(f'workflowType', params.EnumParam, label='Define workflow: ',
                     choices=['Default', 'Manually'], default=0, display=params.EnumParam.DISPLAY_HLIST,
                     help="Whether to use the default workflow (rigidDock+selection+flexDock+energyMin+analysis) or "
-                         "one manually defined (not available yet)")
+                         "one manually defined")
 
-    iGroup = form.addGroup(f'Rigid docking')
+    form.addParam(f'stepType', params.EnumParam, label='Define step: ',
+                  choices=self._haddockSteps, default=0, condition='workflowType==1',
+                  help="Which workflow step to add. In any case, the topologies are calculated as first step.")
+
+    iGroup = form.addGroup(f'Rigid docking', condition=self.getManualCondition([RIGDOC]))
     iGroup.addParam('sampling', params.IntParam, default=20, label='Number of generated models: ',
-                    help='Number of generated models with rigid body fitting.'
+                    condition=self.getManualCondition([RIGDOC]),
+                    help='Number of generated models with rigid body fitting.' 
                          'Rigid body energy minimization with CNS')
 
-    sGroup = form.addGroup(f'Selection')
-    sGroup.addParam('selected', params.IntParam, default=10, label='Number of selected models: ',
-                    help='Number of selected models from the previous step')
+    sGroup = form.addGroup(f'Model selection', condition=self.getManualCondition([SELMOD]))
+    sGroup.addParam('selectModel', params.IntParam, default=10, label='Number of selected models: ',
+                    help='Number of selected models with best scores from the previous step')
 
-    sGroup = form.addGroup(f'Flexible refinement/Energy minimization')
+    sGroup = form.addGroup(f'Flexible refinement/Energy minimization',
+                           condition=self.getManualCondition([FLEXREF, EMMIN]))
     sGroup.addParam('tolerance', params.IntParam, default=5, label='Failure tolerance percentage: ',
+                    condition=self.getManualCondition([FLEXREF, EMMIN]),
                     help='Percentage of allowed failures for a module to successfully complete')
 
-    sGroup = form.addGroup(f'Clustering')
-    sGroup.addParam('nFromCluster', params.IntParam, default=4, label='Number of models per cluster: ',
-                    help='Selection of the top x best scoring complexes from each cluster')
+    scGroup = form.addGroup(f'Cluster selection', condition=self.getManualCondition([SELCLUST]))
+    scGroup.addParam('selectCluster', params.IntParam, default=10, label='Number of selected clusters: ',
+                     help='Number of selected clusters with best scores from the previous step')
 
+    form.addParam(f'addStep', params.LabelParam, label='Add defined step: ',
+                  help="Add defined step to the workflow")
+
+    sumGroup = form.addGroup(f'Workflow', condition='workflowType==1')
+    sumGroup.addParam('workflowSum', params.TextParam, default='', label='Workflow steps: ',
+                      condition='workflowType==1', width=70, height=10,
+                      help='Workflow steps manually defined. In any case, the topologies are calculated as first step.'
+                           '\nIf you want to add any HADDOCK parameter, you can do so following the format in '
+                           'comma-separated:\n\nsteName:: paramName1: paramValue1, paramName2: paramValue2')
 
     form.addParallelSection(threads=4, mpi=1)
 
+
+  def getManualCondition(self, stepNums):
+    return f'workflowType==0 or (workflowType==1 and stepType in {stepNums})'
 
   def _defineInputParams(self, form, num=1):
     iGroup = form.addGroup(f'Input_{num}')
@@ -159,6 +183,22 @@ class ProtHaddockPrediction(EMProtocol):
       rList = [f'{chName}_{i}' for i in range(resIdxs[0], resIdxs[1] + 1)]
     return rList
 
+  def createStepLine(self):
+      stepNum = self.stepType.get()
+      stepName = self._haddockSteps[stepNum]
+
+      s = f'{stepName}:: '
+      if stepNum == RIGDOC:
+          s += f'sampling: {self.sampling.get()}'
+      elif stepNum in [FLEXREF, EMMIN]:
+          s += f'tolerance: {self.tolerance.get()}'
+      elif stepNum in [SELMOD]:
+        s += f'select: {self.selectModel.get()}'
+      elif stepNum in [SELCLUST]:
+        s += f'top_models: {self.selectCluster.get()}'
+      return s
+
+
   def _insertAllSteps(self):
     self._insertFunctionStep(self.convertStep)
     self._insertFunctionStep(self.defineRestrictionsStep)
@@ -197,8 +237,6 @@ class ProtHaddockPrediction(EMProtocol):
         outSet.append(outAS.clone())
 
     self._defineOutputs(**{'outputStructures': outSet})
-
-    a = b
 
 
   ############### MAIN FUNCTIONS #################### 
@@ -250,19 +288,69 @@ class ProtHaddockPrediction(EMProtocol):
   def buildConfFile(self):
     confFile = self.getConfFile()
     cwd = self.getRunDir()
-
     nCores = self.numberOfThreads.get() - 1 if self.numberOfThreads.get() > 1 else 1
     inFile1, inFile2 = self.getMergedFile(1), self.getMergedFile(2)
-    tol = self.tolerance.get()
     ambRestrFile, unambRestrFile = self.getAmbRestrFile(), self.getChainRestrainstsFile()
-    sampling, select = self.sampling.get(), self.selected.get()
-    nPerCluster = self.nFromCluster.get()
-    confStr = DEF_PROTOCOL.format(cwd, nCores, inFile1, inFile2, ambRestrFile, unambRestrFile, sampling, select,
-                                  tol, ambRestrFile, unambRestrFile, tol, ambRestrFile, unambRestrFile, nPerCluster)
+
+    confStr = HADDOCK_HEADER.format(cwd, nCores, inFile1, inFile2)
+    if self.workflowType.get() == 0:
+        tol = self.tolerance.get()
+        sampling, select = self.sampling.get(), self.selectModel.get()
+        nPerCluster = self.selectCluster.get()
+        confStr += DEF_PROTOCOL.format(ambRestrFile, unambRestrFile, sampling, select, tol, ambRestrFile,
+                                       unambRestrFile, tol, ambRestrFile, unambRestrFile, nPerCluster)
+    else:
+        stepsList = self.parseManualWorkflow()
+        confStr += self.buildConfStr(stepsList, ambRestrFile, unambRestrFile)
+
     with open(confFile, 'w') as f:
-      f.write(confStr)
+        f.write(confStr)
     return confFile
 
+  def parseManualWorkflow(self):
+      stepsList = []
+      for line in self.workflowSum.get().split('\n'):
+        line = line.split(')')[-1]
+        if line.strip():
+          stepName, argsStr = line.split('::')
+
+          curStep = {}
+          for argsPair in argsStr.split(','):
+            if ':' in argsPair:
+                argName, argValue = argsPair.split(':')
+                curStep[argName] = argValue
+
+          stepsList.append((stepName, curStep))
+
+      return stepsList
+
+  def buildConfStr(self, stepsList, ambRestrFile, unambRestrFile):
+      s = '[topoaa]\n\n'
+      h = self._haddockSteps
+      for stepName, stepDic in stepsList:
+          stepName = stepName.strip()
+          if stepName == h[RIGDOC]:
+              s += f'[rigidbody]\nambig_fname = "{ambRestrFile}"\nunambig_fname = "{unambRestrFile}"\n'
+          elif stepName == h[FLEXREF]:
+              s += f'[flexref]\nambig_fname = "{ambRestrFile}"\nunambig_fname = "{unambRestrFile}"\n'
+          elif stepName == h[EMMIN]:
+              s += f'[emref]\nambig_fname = "{ambRestrFile}"\nunambig_fname = "{unambRestrFile}"\n'
+          elif stepName == h[CLUST]:
+              s += f'[clustfcc]\n'
+          elif stepName == h[SELMOD]:
+              s += f'[seletop]\n'
+          elif stepName == h[SELCLUST]:
+              s += f'[seletopclusts]\n'
+          elif stepName == h[CAPRI]:
+              s += f'[caprieval]\n'
+          elif stepName == h[CONTACT]:
+              s += f'[contactmap]\n'
+
+          for argName, argValue in stepDic.items():
+              s += f'{argName} = {argValue}\n'
+
+          s += '\n'
+      return s
 
   ############### PARSER FUNCTIONS ####################
   
@@ -394,18 +482,15 @@ class ProtHaddockPrediction(EMProtocol):
     while i < len(oDirs):
         oDir = oDirs[i]
         for file in os.listdir(oDir):
-            if file.endswith('.pdb'):
-                mFiles.append(os.path.join(oDir, file))
+            if file.endswith('.pdb.gz'):
+                oFile = self._getPath(file.replace('.pdb.gz', '.pdb'))
+                gunzipFile(os.path.join(oDir, file), oFile)
+                mFiles.append(oFile)
                 i = len(oDirs)
         i += 1
     return mFiles
 
-
-
-
-
-
-  ############### MANAGER FUNCTIONS ####################
+  ############### MANAGER FUNCTIONS ####################,
 
   def _validate(self):
     errors = []
