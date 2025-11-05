@@ -24,7 +24,7 @@
 # *
 # **************************************************************************
 
-import json, os, shutil
+import json, os
 from Bio.PDB.PDBParser import PDBParser
 from Bio.PDB.ResidueDepth import get_surface
 
@@ -33,7 +33,7 @@ from pyworkflow.protocol import params
 from pwchem.protocols import ProtDefineStructROIs
 from pwchem import Plugin as pwchemPlugin
 from pwchem.constants import MGL_DIC
-from pwchem.utils import clusterSurfaceCoords, createPocketFile
+from pwchem.utils import clusterSurfaceCoords, createPocketFile, getBaseName, pdbFromASFile, cifFromASFile
 from pwchem.objects import StructROI, SetOfStructROIs
 
 from .. import Plugin as haddockPlugin
@@ -67,17 +67,18 @@ class ProtCPORTPrediction(ProtDefineStructROIs):
     self._insertFunctionStep(self.defineOutputStep)
 
   def predictStep(self):
-    inFile = self.getInputPDBFile()
+    inpFile = self.getInputPath()
+    pdbFile = pdbFromASFile(inpFile, self._getPdbFile(), AS=self.inputAtomStruct.get())
     chainStr = json.loads(self.chain_name.get())['chain']
 
-    args = f'{inFile} {chainStr}'
+    args = f'{pdbFile} {chainStr}'
     haddockPlugin.runCPORT(self, args)
 
   def getSurfaceStep(self):
       parser = PDBParser()
-      pdbFile = self.getProteinFileName()
+      pdbFile = self._getPdbFile()
 
-      structure = parser.get_structure(self.getProteinName(), pdbFile)
+      structure = parser.get_structure(self._getInputName(), pdbFile)
       self.structModel = structure[0]
 
       self.structSurface = get_surface(self.structModel,
@@ -94,14 +95,12 @@ class ProtCPORTPrediction(ProtDefineStructROIs):
 
   def defineOutputStep(self):
     inpStruct = self.inputAtomStruct.get()
-    pdbFile = self.getProteinFileName()
-    newPDBFile = self._getPath(os.path.basename(pdbFile))
-    shutil.copy(pdbFile, newPDBFile)
+    cifFile = cifFromASFile(self.getInputPath(), self._getCifFile(), self.inputAtomStruct())
 
     outPockets = SetOfStructROIs(filename=self._getPath('StructROIs.sqlite'))
     for i, clust in enumerate(self.coordsClusters):
       pocketFile = createPocketFile(clust, i, outDir=self._getExtraPath())
-      pocket = StructROI(pocketFile, newPDBFile)
+      pocket = StructROI(pocketFile, cifFile)
       if str(type(inpStruct).__name__) == 'SchrodingerAtomStruct':
         pocket._maeFile = params.String(os.path.relpath(inpStruct.getFileName()))
       pocket.calculateContacts()
@@ -116,7 +115,7 @@ class ProtCPORTPrediction(ProtDefineStructROIs):
 
   def getOutputCoords(self, outRes):
     chainId = json.loads(self.chain_name.get())['chain']
-    structModel = PDBParser().get_structure('receptor', self.getInputPDBFile())[0]
+    structModel = PDBParser().get_structure('receptor', self._getPdbFile())[0]
 
     oCoords = []
     for i, res in enumerate(structModel[chainId].get_residues()):
@@ -126,8 +125,20 @@ class ProtCPORTPrediction(ProtDefineStructROIs):
     return oCoords
 
 
-  def getInputPDBFile(self):
-    return os.path.abspath(self.inputAtomStruct.get().getFileName())
+  def getInputPath(self):
+    return self.inputAtomStruct.get().getFileName()
+
+  def getInputFileName(self):
+    return self.getInputPath().split('/')[-1]
+
+  def _getPdbFile(self):
+    return os.path.abspath(self._getExtraPath(self._getInputName() + '.pdb'))
+
+  def _getCifFile(self):
+    return os.path.abspath(self._getExtraPath(self._getInputName() + '.cif'))
+
+  def _getInputName(self):
+    return getBaseName(self.getInputPath())
 
   def getOutputDir(self):
     return self._getPath('cportOutput')
@@ -153,8 +164,5 @@ class ProtCPORTPrediction(ProtDefineStructROIs):
 
   def _validate(self):
     errors = []
-    if not self.getProteinFileName(inProtocol=False):
-      errors.append('You must specify an input structure')
-
     return errors
 

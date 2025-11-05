@@ -31,7 +31,7 @@ from pyworkflow.protocol import params
 from pwem.protocols import EMProtocol
 from pwem.objects import SetOfAtomStructs, AtomStruct
 
-from pwchem.utils import clusterSurfaceCoords, createPocketFile, getBaseName, pdbFromAS, getBaseFileName, \
+from pwchem.utils import clusterSurfaceCoords, createPocketFile, getBaseName, pdbFromASFile, getBaseFileName, \
   natural_sort, gunzipFile
 
 from ..constants import HADDOCK_DIC, DEF_PROTOCOL, HADDOCK_HEADER
@@ -209,7 +209,7 @@ class ProtHaddockPrediction(EMProtocol):
   
   def convertStep(self):
     for num in range(1, 3):
-      pdbFromAS(self.getInputStruct(num), self.getPDBFile(num))
+      pdbFromASFile(self.getInputStruct(num), self.getPDBFile(num))
   
   def defineRestrictionsStep(self):
     for num in range(1, 3):
