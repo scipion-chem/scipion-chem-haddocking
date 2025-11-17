@@ -68,7 +68,7 @@ class ProtCPORTPrediction(ProtDefineStructROIs):
 
   def predictStep(self):
     inpFile = self.getInputPath()
-    pdbFile = pdbFromASFile(inpFile, self._getPdbFile(), AS=self.inputAtomStruct.get())
+    pdbFile = pdbFromASFile(inpFile, self._getPdbFile(), atomStruct=self.inputAtomStruct.get())
     chainStr = json.loads(self.chain_name.get())['chain']
 
     args = f'{pdbFile} {chainStr}'
@@ -99,7 +99,8 @@ class ProtCPORTPrediction(ProtDefineStructROIs):
 
     outPockets = SetOfStructROIs(filename=self._getPath('StructROIs.sqlite'))
     for i, clust in enumerate(self.coordsClusters):
-      pocketFile = createPocketFile(clust, i, outDir=self._getExtraPath())
+      pocketFile = self._getExtraPath(f'pocketFile_{i}.cif')
+      createPocketFile(clust, i, pocketFile)
       pocket = StructROI(pocketFile, cifFile)
       if str(type(inpStruct).__name__) == 'SchrodingerAtomStruct':
         pocket._maeFile = params.String(os.path.relpath(inpStruct.getFileName()))
