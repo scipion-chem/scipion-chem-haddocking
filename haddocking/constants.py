@@ -44,4 +44,71 @@ GDOCK_DIC = {'name': 'GDock',    'version': '1.0', 'url': 'https://github.com/rv
 LIGHTDOCK_DIC = {'name': 'LightDock',    'version': '1.0', 'url': 'https://github.com/lightdock/lightdock.git',
                  'home': 'LIGHTDOCK_HOME'}
 
+HADDOCK_HEADER = '''
+# ====================================================================
+# Antibody-antigen docking example with restraints from the antibody
+# paratope to the NMR-identified epitope on the antigen 
+# ====================================================================
 
+# Directory in which the scoring will be done
+run_dir = "{}"
+
+# Compute mode
+mode = "local"
+ncores = {}
+
+# Self contained rundir (to avoid problems with long filename paths)
+self_contained = true
+
+# Post-processing to generate statistics and plots
+postprocess = true
+clean = true
+
+molecules =  [
+    "{}",
+    "{}"
+    ]
+
+# ===============================================
+# Parameters for each stage are defined below
+# ===============================================
+'''
+
+DEF_PROTOCOL = '''
+[topoaa]
+
+[rigidbody]
+ambig_fname = "{}"
+unambig_fname = "{}"
+sampling = {}
+
+[caprieval]
+
+[seletop]
+select = {}
+
+[flexref]
+tolerance = {}
+ambig_fname = "{}"
+unambig_fname = "{}"
+
+[caprieval]
+
+[emref]
+tolerance = {}
+ambig_fname = "{}"
+unambig_fname = "{}"
+
+[caprieval]
+
+[clustfcc]
+plot_matrix = true
+
+[seletopclusts]
+top_models = {}
+
+[caprieval]
+
+[contactmap]
+
+# ===================================================================='''

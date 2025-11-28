@@ -62,41 +62,19 @@ class Plugin(pwchemPlugin):
 	@classmethod
 	def defineBinaries(cls, env, default=True):
 		"""This function defines the binaries for each package."""
-		haddockFound = False
-		if cls.checkVarPath(CNS_DIC, 'tar'):
-			cls.addHADDOCKPackage(env, tarPath=cls.getVar(CNS_DIC['tar']))
-			haddockFound = True
-		elif cls.checkVarPath(CNS_DIC, 'home'):
-			cls.addHADDOCKPackage(env, cnsHome=cls.getVar(CNS_DIC['home']))
-			haddockFound = True
-
-		if haddockFound:
-			cls.addCPORTPackage(env)
-			cls.addGDockPackage(env)
-			cls.addLightDockPackage(env)
+		cls.addHADDOCKPackage(env, cnsHome=cls.getVar(CNS_DIC['home']))
+		cls.addCPORTPackage(env)
+		# cls.addGDockPackage(env)
+		# cls.addLightDockPackage(env)
 
 	@classmethod
 	def addHADDOCKPackage(cls, env, cnsHome=None, tarPath=None, default=True):
 		installer = InstallHelper(HADDOCK_DIC['name'], packageHome=cls.getVar(HADDOCK_DIC['home']),
 															packageVersion=HADDOCK_DIC['version'])
 
-		cnsOrigin = cnsHome if cnsHome else tarPath
-		cnsTarCmd = f'tar -zxvf {os.path.basename(tarPath)} && ' if tarPath else ''
-		cnsName = 'cns_solve_1.3'
-
 		# Installing HADDOCK + CNS package
-		installer.getCondaEnvCommand(pythonVersion='3.9', requirementsFile=False) \
-			.addCommand(f'git clone --recursive {HADDOCK_DIC["url"]}') \
-			.addCommand(f'cd haddock3/src/fcc/src && chmod u+x Makefile && make', 'FCC_INSTALLED') \
-			.addCommand(f'cd haddock3/src/fast-rmsdmatrix/src && chmod u+x Makefile && make fast-rmsdmatrix',
-									'FAST-RMSDMATRIX_INSTALLED') \
-			.addCommand(f'cd haddock3 && {cls.getEnvActivationCommand(HADDOCK_DIC)} && pip install -r requirements.txt && '
-									f'python setup.py develop --no-deps', 'HADDOCK_INSTALLED') \
-			.addCommand(f'''mkdir -p software && cd software && mv {cnsOrigin} {cnsName} && {cnsTarCmd} cd {cnsName} && \
-			sed -i 's@_CNSsolve_location_@'"$PWD"'@' cns_solve_env && cp -r ../../haddock3/varia/cns1.3/[bis]* . && \
-			make install compiler=gfortran && mkdir -p ../../haddock3/bin && \
-			cp $(./bin/getarch)/source/cns_solve-*.exe ../../haddock3/bin/cns''',
-									'CNS_INSTALLED') \
+		installer.getCondaEnvCommand(pythonVersion='3.9', requirementsFile=False)\
+			.addCommand(f'{cls.getEnvActivationCommand(HADDOCK_DIC)} && pip install haddock3', 'HADDOCK_INSTALLED') \
 			.addPackage(env, ['git', 'pip'], default=default)
 
 	@classmethod
@@ -152,6 +130,17 @@ class Plugin(pwchemPlugin):
 		os.rename(outPath, protocol.getOutputDir())
 
 	@classmethod
+	def runHaddock(cls, protocol, program, args, cwd, popen=False):
+		""" Run HADDOCK commands from a given protocol. """
+		fullProgram = f'{cls.getEnvActivationCommand(HADDOCK_DIC)} && {program} '
+		if not popen:
+			protocol.runJob(fullProgram, args, env=cls.getEnviron(), cwd=cwd)
+		else:
+			res = sp.check_output(f'{fullProgram} {args}', cwd=cwd, shell=True, text=True)
+			return res
+
+
+	@classmethod
 	def checkVarPath(cls, softDic, var='home'):
 		'''Check if a plugin variable exists and so do its path'''
 		exists = False
@@ -172,3 +161,9 @@ class Plugin(pwchemPlugin):
 	@classmethod
 	def addCondaVarCmd(cls, varName, varValue):
 		return f"conda env config vars set {varName}={varValue}"
+
+	@classmethod
+	def getPluginHome(cls, path=""):
+		import haddocking
+		fnDir = os.path.split(haddocking.__file__)[0]
+		return os.path.join(fnDir, path)

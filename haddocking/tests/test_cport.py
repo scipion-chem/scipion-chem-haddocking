@@ -53,11 +53,9 @@ class TestCPORT(BaseTest):
 				)
 
         self.launchProtocol(protCPORT)
-        pdbOut = getattr(protCPORT, 'outputStructROIs', None)
-        self.assertIsNotNone(pdbOut)
         return protCPORT
 
-    def testP2Rank(self):
+    def testCPort(self):
         protCPORT = self._runCPORTFind()
         self.assertIsNotNone(protCPORT.outputStructROIs)
 
