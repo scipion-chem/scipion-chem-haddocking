@@ -209,7 +209,7 @@ class ProtHaddockPrediction(EMProtocol):
   
   def convertStep(self):
     for num in range(1, 3):
-      pdbFromASFile(self.getInputStruct(num), self.getPDBFile(num))
+      pdbFromASFile(self.getInputFile(num), self.getPDBFile(num), self.getInputStruct(num))
   
   def defineRestrictionsStep(self):
     for num in range(1, 3):
