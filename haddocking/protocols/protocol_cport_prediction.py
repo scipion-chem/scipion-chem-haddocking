@@ -40,7 +40,92 @@ from .. import Plugin as haddockPlugin
 
 
 class ProtCPORTPrediction(ProtDefineStructROIs):
-  """Run protein-protein interface predictions using CPORT software from Bonvin Lab"""
+  """CPORT protein–protein interface prediction
+
+  AI Generated:
+
+      ProtCPORTPrediction - User Manual
+
+      Overview
+      --------
+      The ProtCPORTPrediction protocol integrates the CPORT (Consensus Prediction
+      Of interface Residues in Transient complexes) method into Scipion-Chem for
+      predicting protein–protein interaction interfaces. It identifies residues
+      likely involved in binding by combining multiple prediction approaches and
+      scoring their consensus.
+
+      This protocol is designed to detect interface regions on protein surfaces,
+      which can then be used to define docking restraints, interaction hotspots,
+      or structural regions of interest.
+
+      Input Requirements
+      ------------------
+      1. **Protein Structure**:
+         - AtomStruct object containing the receptor structure.
+         - Must include valid atomic coordinates.
+
+      2. **Chain Selection**:
+         - A specific chain must be selected for interface prediction.
+         - Only residues from this chain will be evaluated.
+
+      Workflow
+      --------
+      1. **Interface Prediction**:
+         - Executes CPORT to predict interface residues.
+         - Outputs residue-level scores indicating likelihood of participation
+           in protein–protein interactions.
+
+      2. **Threshold Filtering**:
+         - Residues with scores above the defined threshold are selected.
+         - These residues are considered part of the predicted interface.
+
+      3. **Coordinate Extraction**:
+         - Atomic coordinates of selected residues are retrieved.
+         - Optionally mapped onto the molecular surface.
+
+      4. **Clustering**:
+         - Coordinates are clustered into spatially coherent regions.
+         - Each cluster represents a candidate interaction pocket.
+
+      5. **Pocket Generation**:
+         - Clusters are converted into StructROI objects.
+         - Contacts and structural properties are computed.
+
+      Outputs
+      -------
+      - **SetOfStructROIs**:
+        - Each ROI corresponds to a predicted interface region.
+        - Includes coordinates, contact information, and structural metadata.
+
+      - **Auxiliary Files**:
+        - CPORT prediction output files.
+        - Intermediate clustering and pocket definition data.
+
+      Advanced Options
+      ----------------
+      - Score threshold to control prediction strictness.
+      - Clustering parameters (distance thresholds) to define pocket granularity.
+      - Optional mapping to surface coordinates for more realistic interface regions.
+
+      Validation & Warnings
+      ---------------------
+      - Input structure must contain the specified chain.
+      - Prediction quality depends on structural completeness and correctness.
+      - Very high thresholds may result in no predicted interface regions.
+
+      Practical Recommendations
+      -------------------------
+      - Use moderate thresholds (e.g., ~0.6) for balanced sensitivity/specificity.
+      - Combine with docking protocols (e.g., HADDOCK) for guided protein–protein docking.
+      - Inspect resulting clusters to ensure biological relevance.
+
+      Final Perspective
+      -----------------
+      ProtCPORTPrediction provides an efficient way to identify protein–protein
+      interaction interfaces using consensus-based machine learning predictions.
+      It facilitates downstream docking, interface analysis, and structural
+      modeling workflows within Scipion-Chem.
+  """
   _label = 'CPORT protein interface prediction'
 
   def _defineParams(self, form):
