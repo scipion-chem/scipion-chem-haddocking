@@ -33,7 +33,7 @@ setup(
     install_requires=[requirements],
     include_package_data=True,
     package_data={
-       'haddocking': ['haddocking_logo.jpeg'],
+       'haddocking': ['haddocking_logo.jpeg', 'protocols.conf'],
     },
     entry_points={
         'pyworkflow.plugin': 'haddocking = haddocking'
