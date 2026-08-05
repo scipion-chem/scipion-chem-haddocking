@@ -476,6 +476,7 @@ class ProtHaddockPrediction(EMProtocol):
   def getOutputModelFiles(self):
     runDir = self.getRunDir()
     oDirs = [os.path.join(runDir, oDir) for oDir in os.listdir(runDir) if len(oDir.split('_')) == 2]
+    oDirs = [oDir for oDir in oDirs if os.path.isdir(oDir)]
     oDirs = natural_sort(oDirs, rev=True)
 
     mFiles, i = [], 0
