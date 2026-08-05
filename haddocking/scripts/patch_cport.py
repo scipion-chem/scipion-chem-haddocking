@@ -25,8 +25,8 @@ def patch(path, old, new):
     path.write_text(text.replace(old, new, 1))
 
 
-def main(cport_root):
-    src = pathlib.Path(cport_root) / 'src' / 'cport'
+def main(cportRoot):
+    src = pathlib.Path(cportRoot) / 'src' / 'cport'
 
     patch(src / 'url.py',
           'SCRIBER_URL = "http://biomine.cs.vcu.edu/servers/SCRIBER/"',
@@ -43,8 +43,8 @@ def main(cport_root):
           '        browser.follow_link(result_link)\n'
           '        processing_url = browser.get_url()')
 
-    utils_py = src / 'modules' / 'utils.py'
-    patch(utils_py,
+    utilsPy = src / 'modules' / 'utils.py'
+    patch(utilsPy,
           '    standardized_dic = standardize_residues(result_dic, chain_id, pdb_file)\n'
           '    reslist = get_residue_range(standardized_dic)\n'
           '    data = []\n'
@@ -63,7 +63,7 @@ def main(cport_root):
           '        row = [pred]\n'
           '\n'
           '        if pred in scored_predictors:')
-    patch(utils_py,
+    patch(utilsPy,
           '    active_reslist = []\n'
           '    passive_reslist = []\n'
           '    for pred in result_dic:\n'
@@ -74,7 +74,7 @@ def main(cport_root):
           '        if result_dic[pred] is None:\n'
           '            continue\n'
           '        if pred in scored_predictors:')
-    patch(utils_py,
+    patch(utilsPy,
           '    if bias != 0:\n'
           '        for pred in result_dic:\n'
           '            if pred not in scored_predictors and pred not in pdb_predictors:',
@@ -83,7 +83,7 @@ def main(cport_root):
           '            if result_dic[pred] is None:\n'
           '                continue\n'
           '            if pred not in scored_predictors and pred not in pdb_predictors:')
-    patch(utils_py,
+    patch(utilsPy,
           '        for pred in result_dic:\n'
           '            # these use sequences and do not see missing items\n'
           '            if pred == "predictprotein" or pred == "scriber":',

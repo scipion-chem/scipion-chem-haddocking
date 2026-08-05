@@ -151,14 +151,14 @@ class ProtCPORTPrediction(ProtDefineStructROIs):
         return os.path.join(outDir, file)
 
   def parseMLOutput(self, threshold=0.6):
-    label_scores = {'A': 1.0, 'AP': 1.0, 'P': 0.5, '-': None}
+    labelScores = {'A': 1.0, 'AP': 1.0, 'P': 0.5, '-': None}
     with open(self.getOutputRawFile()) as f:
       reader = csv.reader(f)
       resIDs = next(reader)[1:]
       resScores = [[] for _ in resIDs]
       for row in reader:
         for resScore, value in zip(resScores, row[1:]):
-          score = label_scores[value] if value in label_scores else float(value)
+          score = labelScores[value] if value in labelScores else float(value)
           if score is not None:
             resScore.append(score)
 
