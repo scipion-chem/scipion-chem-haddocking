@@ -28,6 +28,7 @@ This package contains protocols for creating and using IIITD Raghava software
 """
 
 import os
+import shutil
 import subprocess as sp
 
 from scipion.install.funcs import InstallHelper
@@ -103,10 +104,14 @@ class Plugin(pwchemPlugin):
 	def addCPORTPackage(cls, env, default=True):
 		installer = InstallHelper(CPORT_DIC['name'], packageHome=cls.getVar(CPORT_DIC['home']),
 															packageVersion=CPORT_DIC['version'])
+		cportPatcher = os.path.join(os.path.dirname(__file__), 'scripts', 'patch_cport.py')
+
 		# Installing CPORT package
 		installer.getCondaEnvCommand(pythonVersion='3.10', requirementsFile=False) \
-			.addCommand(f'git clone {CPORT_DIC["url"]} && cd cport && {cls.getEnvActivationCommand(CPORT_DIC)} && '
-									f'pip install .') \
+			.addCommand(f'git clone {CPORT_DIC["url"]} && python3 {cportPatcher} cport',
+									'CPORT_PATCHED') \
+			.addCommand(f'cd cport && {cls.getEnvActivationCommand(CPORT_DIC)} && pip install .',
+									'CPORT_INSTALLED') \
 			.addPackage(env, ['git', 'conda', 'pip'], default=default)
 
 
@@ -127,7 +132,7 @@ class Plugin(pwchemPlugin):
 		else:
 			sp.check_call(f'{fullProgram} {args}', cwd=cportHome, shell=True)
 
-		os.rename(outPath, protocol.getOutputDir())
+		shutil.move(outPath, protocol.getOutputDir())
 
 	@classmethod
 	def runHaddock(cls, protocol, program, args, cwd, popen=False):

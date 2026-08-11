@@ -24,7 +24,7 @@
 # *
 # **************************************************************************
 
-import json, os
+import csv, json, os
 from Bio.PDB.PDBParser import PDBParser
 from Bio.PDB.ResidueDepth import get_surface
 
@@ -71,7 +71,7 @@ class ProtCPORTPrediction(ProtDefineStructROIs):
     pdbFile = pdbFromASFile(inpFile, self._getPdbFile(), atomStruct=self.inputAtomStruct.get())
     chainStr = json.loads(self.chain_name.get())['chain']
 
-    args = f'{pdbFile} {chainStr}'
+    args = f'{pdbFile} {chainStr} --pred sppider ispred4 scannet'
     haddockPlugin.runCPORT(self, args)
 
   def getSurfaceStep(self):
@@ -95,7 +95,7 @@ class ProtCPORTPrediction(ProtDefineStructROIs):
 
   def defineOutputStep(self):
     inpStruct = self.inputAtomStruct.get()
-    cifFile = cifFromASFile(self.getInputPath(), self._getCifFile(), self.inputAtomStruct())
+    cifFile = cifFromASFile(self.getInputPath(), self._getCifFile(), inpStruct)
 
     outPockets = SetOfStructROIs(filename=self._getPath('StructROIs.sqlite'))
     for i, clust in enumerate(self.coordsClusters):
@@ -144,23 +144,26 @@ class ProtCPORTPrediction(ProtDefineStructROIs):
   def getOutputDir(self):
     return self._getPath('cportOutput')
 
-  def getOutputMLFile(self):
+  def getOutputRawFile(self):
     outDir = self.getOutputDir()
     for file in os.listdir(outDir):
-      if file.startswith('cport_ML'):
+      if file.startswith('predictors_'):
         return os.path.join(outDir, file)
 
   def parseMLOutput(self, threshold=0.6):
-    '''Parses the output of CPORT and returns a list with the residues over the threshold
-    '''
-    outRes, outFile = [], self.getOutputMLFile()
-    with open(outFile) as f:
-      f.readline()
-      for line in f:
-        sline = line.split(',')
-        resID, score = sline[1:3]
-        if float(score) >= threshold:
-          outRes.append(resID)
+    labelScores = {'A': 1.0, 'AP': 1.0, 'P': 0.5, '-': None}
+    with open(self.getOutputRawFile()) as f:
+      reader = csv.reader(f)
+      resIDs = next(reader)[1:]
+      resScores = [[] for _ in resIDs]
+      for row in reader:
+        for resScore, value in zip(resScores, row[1:]):
+          score = labelScores[value] if value in labelScores else float(value)
+          if score is not None:
+            resScore.append(score)
+
+    outRes = [resID for resID, scores in zip(resIDs, resScores)
+              if scores and sum(scores) / len(scores) >= threshold]
     return outRes
 
   def _validate(self):
