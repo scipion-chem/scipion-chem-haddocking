@@ -28,9 +28,18 @@
 """
 """
 
-from pwchem.wizards import SelectChainWizardQT, SelectResidueWizardQT, SelectElementWizard, AddElementWizard, \
+from pwchem.wizards import SelectChainWizardQT, SelectResidueWizardQT, SelectMultiChainWizard, SelectElementWizard, AddElementWizard, \
   SelectAtomWizardQT, AddNumberedElementWizard
-from ..protocols import ProtCPORTPrediction, ProtHaddockPrediction
+from ..protocols import ProtCPORTPrediction, ProtHaddockPrediction, ProtPRODIGYPrediction
+
+SelectMultiChainWizard().addTarget(protocol=ProtPRODIGYPrediction,
+                                targets=['chain_name1'],
+                                inputs=['inputAtomStruct'],
+                                outputs=['chain_name1'])
+SelectMultiChainWizard().addTarget(protocol=ProtPRODIGYPrediction,
+                                targets=['chain_name2'],
+                                inputs=['inputAtomStruct'],
+                                outputs=['chain_name2'])
 
 SelectChainWizardQT().addTarget(protocol=ProtCPORTPrediction,
                                 targets=['chain_name'],
