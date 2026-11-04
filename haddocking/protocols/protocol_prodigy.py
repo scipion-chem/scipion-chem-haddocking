@@ -42,6 +42,21 @@ from pwchem.objects import SetOfStructROIs, StructROI
 from pwchem.utils import cifFromASFile
 
 
+class ContactResidueSelect(Select):
+
+    def __init__(self, chainId, residues):
+        self.chainId = chainId
+        self.residues = residues
+
+    def accept_chain(self, chain):
+        return chain.id == self.chainId
+
+    def accept_residue(self, residue):
+        resName = residue.resname.strip()
+        resId = residue.id[1]
+
+        return (resName, resId) in self.residues
+
 class ProtPRODIGYPrediction(ProtDefineStructROIs):
   """Run protein-protein interface binding affinity predictions using PRODIGY software from Bonvin Lab"""
   _label = 'PRODIGY protein interface binding affinity prediction'
@@ -74,8 +89,8 @@ class ProtPRODIGYPrediction(ProtDefineStructROIs):
     form.addParallelSection(threads=4, mpi=1)
 
   def _insertAllSteps(self):
-      self._insertFunctionStep('predictStep')
-      self._insertFunctionStep('createOutputStep')
+      self._insertFunctionStep(self.predictStep)
+      self._insertFunctionStep(self.createOutputStep)
 
   def predictStep(self):
     # Convert the input structure to PDB format
@@ -210,21 +225,6 @@ class ProtPRODIGYPrediction(ProtDefineStructROIs):
         roiCifFile = self._getExtraPath(
             'interface_chain_{}.cif'.format(chainId)
         )
-
-        class ContactResidueSelect(Select):
-
-            def __init__(self, chainId, residues):
-                self.chainId = chainId
-                self.residues = residues
-
-            def accept_chain(self, chain):
-                return chain.id == self.chainId
-
-            def accept_residue(self, residue):
-                resName = residue.resname.strip()
-                resId = residue.id[1]
-
-                return (resName, resId) in self.residues
 
         # Extract contacting residues from the original structure
         io = PDBIO()
