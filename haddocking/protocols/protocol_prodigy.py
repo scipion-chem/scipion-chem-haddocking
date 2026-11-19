@@ -33,7 +33,7 @@ from pyworkflow.protocol import params
 from pwchem.protocols import ProtDefineStructROIs
 
 from pwchem.utils import pdbFromASFile, getBaseName
-from haddocking.constants import PRODIGY_DIC
+from haddocking.constants import PRODIGY_DIC, PRODIGY_DEF_ACC_THRESHOLD, PRODIGY_RESIDUES_FILE
 
 from haddocking import Plugin
 
@@ -90,6 +90,7 @@ class ProtPRODIGYPrediction(ProtDefineStructROIs):
 
   def _insertAllSteps(self):
       self._insertFunctionStep(self.predictStep)
+      self._insertFunctionStep(self.residueAnalysisStep)
       self._insertFunctionStep(self.createOutputStep)
 
   def predictStep(self):
@@ -148,6 +149,17 @@ class ProtPRODIGYPrediction(ProtDefineStructROIs):
       program='prodigy',
       cwd=os.path.abspath(Plugin.getVar(PRODIGY_DIC['home']))
     )
+
+  def residueAnalysisStep(self):
+    pdbFile = self._getPdbFile()
+    icFile = os.path.splitext(pdbFile)[0] + '.ic'
+    accThreshold = self.acc_threshold.get() if self.acc_threshold.get() > 0 else PRODIGY_DEF_ACC_THRESHOLD
+    args = '{} {} {} {}'.format(shlex.quote(pdbFile), shlex.quote(icFile), accThreshold,
+                                shlex.quote(self.getResiduesFile()))
+    Plugin.runScript(self, 'prodigyResidues.py', args, PRODIGY_DIC, cwd=self._getExtraPath())
+
+  def getResiduesFile(self):
+    return os.path.abspath(self._getExtraPath(PRODIGY_RESIDUES_FILE))
 
   def createOutputStep(self):
 
