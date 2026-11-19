@@ -52,11 +52,13 @@ class Plugin(pwchemPlugin):
 		cls._defineEmVar(CPORT_DIC['home'], cls.getEnvName(CPORT_DIC))
 		cls._defineEmVar(GDOCK_DIC['home'], cls.getEnvName(GDOCK_DIC))
 		cls._defineEmVar(LIGHTDOCK_DIC['home'], cls.getEnvName(LIGHTDOCK_DIC))
+		cls._defineEmVar(PRODIGY_DIC['home'], cls.getEnvName(PRODIGY_DIC))
 
 		cls._defineVar(CNS_DIC['home'], None)
 		cls._defineVar(CNS_DIC['tar'], None)
 
 		cls._defineVar('HADDOCK_ENV_ACTIVATION', cls.getEnvActivationCommand(HADDOCK_DIC))
+		cls._defineVar('PRODIGY_ACTIVATION_CMD', cls.getEnvActivationCommand(PRODIGY_DIC))
 		cls._defineVar('CPORT_ENV_ACTIVATION', cls.getEnvActivationCommand(CPORT_DIC))
 
 
@@ -65,6 +67,7 @@ class Plugin(pwchemPlugin):
 		"""This function defines the binaries for each package."""
 		cls.addHADDOCKPackage(env, cnsHome=cls.getVar(CNS_DIC['home']))
 		cls.addCPORTPackage(env)
+		cls.addPRODIGYPackage(env)
 		# cls.addGDockPackage(env)
 		# cls.addLightDockPackage(env)
 
@@ -76,6 +79,15 @@ class Plugin(pwchemPlugin):
 		# Installing HADDOCK + CNS package
 		installer.getCondaEnvCommand(pythonVersion='3.9', requirementsFile=False)\
 			.addCommand(f'{cls.getEnvActivationCommand(HADDOCK_DIC)} && pip install haddock3', 'HADDOCK_INSTALLED') \
+			.addPackage(env, ['git', 'pip'], default=default)
+
+	@classmethod
+	def addPRODIGYPackage(cls, env, cnsHome=None, tarPath=None, default=True):
+		installer = InstallHelper(PRODIGY_DIC['name'], packageHome=cls.getVar(PRODIGY_DIC['home']),
+		                          packageVersion=PRODIGY_DIC['version'])
+
+		installer.getCondaEnvCommand(pythonVersion='3.11', requirementsFile=False) \
+			.addCommand(f'{cls.getEnvActivationCommand(PRODIGY_DIC)} && pip install prodigy-prot', 'PRODIGY_INSTALLED') \
 			.addPackage(env, ['git', 'pip'], default=default)
 
 	@classmethod
