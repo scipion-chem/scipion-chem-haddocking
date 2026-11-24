@@ -32,7 +32,7 @@ DEFAULT_VERSION = '1.0'
 HADDOCK_DIC = {'name': 'HADDOCK',    'version': '3.0', 'url': 'https://github.com/haddocking/haddock3.git',
                'home': 'HADDOCK_HOME', 'activation': 'HADDOCK_ACTIVATION_CMD'}
 
-PRODIGY_DIC = {'name': 'PRODIGY',    'version': '2.4.6', 'url': 'https://github.com/haddocking/prodigy',
+PRODIGY_DIC = {'name': 'PRODIGY',    'version': '2.5.1', 'url': 'https://github.com/haddocking/prodigy',
                'home': 'PRODIGY_HOME', 'activation': 'PRODIGY_ACTIVATION_CMD'}
 
 PRODIGY_DEF_ACC_THRESHOLD = 0.05

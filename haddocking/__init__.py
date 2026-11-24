@@ -87,7 +87,7 @@ class Plugin(pwchemPlugin):
 		                          packageVersion=PRODIGY_DIC['version'])
 
 		installer.getCondaEnvCommand(pythonVersion='3.11', requirementsFile=False) \
-			.addCommand(f'{cls.getEnvActivationCommand(PRODIGY_DIC)} && pip install prodigy-prot', 'PRODIGY_INSTALLED') \
+			.addCommand(f'{cls.getEnvActivationCommand(PRODIGY_DIC)} && pip install prodigy-prot==2.5.1', 'PRODIGY_INSTALLED') \
 			.addPackage(env, ['git', 'pip'], default=default)
 
 	@classmethod
