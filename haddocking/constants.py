@@ -32,6 +32,18 @@ DEFAULT_VERSION = '1.0'
 HADDOCK_DIC = {'name': 'HADDOCK',    'version': '3.0', 'url': 'https://github.com/haddocking/haddock3.git',
                'home': 'HADDOCK_HOME', 'activation': 'HADDOCK_ACTIVATION_CMD'}
 
+PRODIGY_DIC = {'name': 'PRODIGY',    'version': '2.5.1', 'url': 'https://github.com/haddocking/prodigy',
+               'home': 'PRODIGY_HOME', 'activation': 'PRODIGY_ACTIVATION_CMD'}
+
+PRODIGY_DEF_ACC_THRESHOLD = 0.05
+PRODIGY_RESIDUES_FILE = 'prodigy_residues.json'
+PRODIGY_IC_CHARACTER = {'A': 'apolar', 'C': 'charged', 'P': 'polar'}
+PRODIGY_HYDRO_CHARACTER = {'B': 'hydrophobic', 'L': 'hydrophilic'}
+PRODIGY_CONTACT_TYPES = {'CC': 'charged-charged', 'CP': 'charged-polar', 'AC': 'charged-apolar',
+                         'PP': 'polar-polar', 'AP': 'apolar-polar', 'AA': 'apolar-apolar',
+                         'LL': 'hydrophilic-hydrophilic', 'BL': 'hydrophobic-hydrophilic',
+                         'BB': 'hydrophobic-hydrophobic'}
+
 CNS_DIC = {'name': 'CNS',    'version': '1.3',
            'home': 'CNS_HOME', 'tar': 'CNS_TAR', 'pattern': 'cns'}
 
