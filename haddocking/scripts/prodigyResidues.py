@@ -30,7 +30,7 @@ Usage: python prodigyResidues.py <structure> <contacts.ic> <accThreshold> <outpu
 
 import json
 import sys
-
+from pathlib import Path
 from prodigy_prot.modules.parsers import parse_structure
 from prodigy_prot.modules.freesasa_tools import execute_freesasa_api
 from prodigy_prot.modules.prodigy import analyse_nis
@@ -38,12 +38,25 @@ from prodigy_prot.modules.aa_properties import aa_character_ic, aa_character_pro
 
 
 def readContacts(icFile):
+  workDir = Path.cwd().resolve()
+  icPath = Path(icFile).resolve()
+
+  if not icPath.is_relative_to(workDir):
+    raise ValueError(
+      'Contacts file must be inside the working directory.'
+    )
+
   contacts = []
-  with open(icFile) as f:
+
+  with icPath.open() as f:
     for line in f:
       fields = line.split()
       if len(fields) == 6:
-        contacts.append(((fields[2], fields[0], fields[1]), (fields[5], fields[3], fields[4])))
+        contacts.append(
+          ((fields[2], fields[0], fields[1]),
+           (fields[5], fields[3], fields[4]))
+        )
+
   return contacts
 
 
@@ -85,7 +98,14 @@ if __name__ == '__main__':
                         'nisCharacter': aa_character_protorp.get(resName), 'rsa': rsa,
                         'surface': rsa >= accThreshold, 'nContacts': nContacts.get(key, 0)})
 
-  with open(outFile, 'w') as f:
+  outPath = Path(outFile).resolve()
+
+  if not outPath.is_relative_to(Path.cwd().resolve()):
+    raise ValueError(
+      'Output file must be inside the working directory.'
+    )
+
+  with outPath.open('w') as f:
     json.dump({'accThreshold': accThreshold, 'bins': bins,
                'nis': {'A': nisA, 'C': nisC, 'P': nisP},
                'contacts': contactRows, 'residues': residueRows}, f, indent=2)
