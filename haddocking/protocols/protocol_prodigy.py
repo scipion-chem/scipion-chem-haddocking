@@ -315,34 +315,7 @@ class ProtPRODIGYPrediction(ProtDefineStructROIs):
     return getBaseName(self.getInputPath())
 
   def _validate(self):
-      errors = []
-
-      if self.interaction_mode.get() == 1:
-          chain1 = self.chain_name1.get()
-          chain2 = self.chain_name2.get()
-
-          if not chain1:
-              errors.append(
-                  'Please select the chains for molecular group 1.'
-              )
-
-          if not chain2:
-              errors.append(
-                  'Please select the chains for molecular group 2.'
-              )
-
-          if chain1 and chain2:
-              try:
-                  group1 = self.parseChainSelection(chain1)
-                  group2 = self.parseChainSelection(chain2)
-
-                  if set(group1) & set(group2):
-                      errors.append(
-                          'The same chain cannot belong to both '
-                          'molecular groups.'
-                      )
-              except ValueError as e:
-                  errors.append(str(e))
+      errors = self._validateChains() if self.interaction_mode.get() == 1 else []
 
       if self.temperature.get() < -273.15:
           errors.append(
@@ -358,6 +331,31 @@ class ProtPRODIGYPrediction(ProtDefineStructROIs):
           errors.append(
               'Accessibility threshold must be greater than or equal to 0.'
           )
+
+      return errors
+
+  def _validateChains(self):
+      errors = []
+      chain1 = self.chain_name1.get()
+      chain2 = self.chain_name2.get()
+
+      if not chain1:
+          errors.append('Please select the chains for molecular group 1.')
+
+      if not chain2:
+          errors.append('Please select the chains for molecular group 2.')
+
+      if chain1 and chain2:
+          try:
+              group1 = self.parseChainSelection(chain1)
+              group2 = self.parseChainSelection(chain2)
+
+              if set(group1) & set(group2):
+                  errors.append(
+                      'The same chain cannot belong to both molecular groups.'
+                  )
+          except ValueError as e:
+              errors.append(str(e))
 
       return errors
 
