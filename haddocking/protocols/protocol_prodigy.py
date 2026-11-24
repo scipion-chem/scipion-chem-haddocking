@@ -287,7 +287,7 @@ class ProtPRODIGYPrediction(ProtDefineStructROIs):
             'Invalid chain selection format: {}'.format(item)
           )
 
-        model, chain = item.split('-', 1)
+        _, chain = item.split('-', 1)
         chains.append(chain.strip())
 
     # Single chain selection: {"model": 0, "chain": "A"}
@@ -315,53 +315,51 @@ class ProtPRODIGYPrediction(ProtDefineStructROIs):
     return getBaseName(self.getInputPath())
 
   def _validate(self):
-    errors = []
+      errors = []
 
-    if self.interaction_mode.get() == 1:
-      if not self.chain_name1.get():
-        errors.append(
-          'Please select the chains for molecular group 1.'
-        )
+      if self.interaction_mode.get() == 1:
+          chain1 = self.chain_name1.get()
+          chain2 = self.chain_name2.get()
 
-      if not self.chain_name2.get():
-        errors.append(
-          'Please select the chains for molecular group 2.'
-        )
+          if not chain1:
+              errors.append(
+                  'Please select the chains for molecular group 1.'
+              )
 
-      if self.chain_name1.get() and self.chain_name2.get():
-        try:
-          group1 = self.parseChainSelection(
-            self.chain_name1.get()
+          if not chain2:
+              errors.append(
+                  'Please select the chains for molecular group 2.'
+              )
+
+          if chain1 and chain2:
+              try:
+                  group1 = self.parseChainSelection(chain1)
+                  group2 = self.parseChainSelection(chain2)
+
+                  if set(group1) & set(group2):
+                      errors.append(
+                          'The same chain cannot belong to both '
+                          'molecular groups.'
+                      )
+              except ValueError as e:
+                  errors.append(str(e))
+
+      if self.temperature.get() < -273.15:
+          errors.append(
+              'Temperature cannot be below absolute zero (-273.15 °C).'
           )
-          group2 = self.parseChainSelection(
-            self.chain_name2.get()
+
+      if self.dist_cutoff.get() < 0:
+          errors.append(
+              'Distance cutoff must be greater than or equal to 0.'
           )
 
-          if set(group1).intersection(set(group2)):
-            errors.append(
-              'The same chain cannot belong to both '
-              'molecular groups.'
-            )
+      if self.acc_threshold.get() < 0:
+          errors.append(
+              'Accessibility threshold must be greater than or equal to 0.'
+          )
 
-        except ValueError as e:
-          errors.append(str(e))
-
-    if self.temperature.get() < -273.15:
-      errors.append(
-        'Temperature cannot be below absolute zero (-273.15 °C).'
-      )
-
-    if self.dist_cutoff.get() < 0:
-      errors.append(
-        'Distance cutoff must be greater than or equal to 0.'
-      )
-
-    if self.acc_threshold.get() < 0:
-      errors.append(
-        'Accessibility threshold must be greater than or equal to 0.'
-      )
-
-    return errors
+      return errors
 
   def _summary(self):
     summary = []

@@ -58,7 +58,9 @@ if __name__ == '__main__':
   structFile, icFile, accThreshold, outFile = sys.argv[1], sys.argv[2], float(sys.argv[3]), sys.argv[4]
 
   contacts = readContacts(icFile)
-  bins = {key: 0 for key in ['CC', 'CP', 'AC', 'PP', 'AP', 'AA', 'LL', 'BL', 'BB']}
+  bins = dict.fromkeys(
+    ['CC', 'CP', 'AC', 'PP', 'AP', 'AA', 'LL', 'BL', 'BB'], 0
+  )
   contactRows, nContacts = [], {}
   for res1, res2 in contacts:
     icType, hydroType = pairType(res1, res2, aa_character_ic), pairType(res1, res2, aa_character_hydro)
