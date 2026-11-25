@@ -76,39 +76,37 @@ molecules =  [
 
 DEF_PROTOCOL = '''
 [topoaa]
-
+{ligand}
 [rigidbody]
-ambig_fname = "{}"
-unambig_fname = "{}"
-sampling = {}
+{restraints}sampling = {sampling}
 
 [caprieval]
 
 [seletop]
-select = {}
+select = {select}
 
 [flexref]
-tolerance = {}
-ambig_fname = "{}"
-unambig_fname = "{}"
-
+tolerance = {tolerance}
+{restraints}
 [caprieval]
 
 [emref]
-tolerance = {}
-ambig_fname = "{}"
-unambig_fname = "{}"
-
+tolerance = {tolerance}
+{restraints}
 [caprieval]
 
 [clustfcc]
 plot_matrix = true
 
 [seletopclusts]
-top_models = {}
+top_models = {topModels}
 
 [caprieval]
 
 [contactmap]
 
 # ===================================================================='''
+
+LIGAND_RESNAMES = ['LG1', 'LG2']
+WATER_RESNAMES = ['HOH', 'WAT', 'TIP', 'TIP3', 'DOD']
+TOPOLOGY_TERMS = ('BOND', 'ANGL', 'DIHE', 'IMPR')

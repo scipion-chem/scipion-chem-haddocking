@@ -144,6 +144,13 @@ class Plugin(pwchemPlugin):
 			res = sp.check_output(f'{fullProgram} {args}', cwd=cwd, shell=True, text=True)
 			return res
 
+	@classmethod
+	def getSupportedResidues(cls, protocol, cwd):
+		""" Return the residue names included in the HADDOCK3 CNS topology library. """
+		pyCmd = 'python -c "from haddock.core.supported_molecules import supported_residues; ' \
+						'print(\' \'.join(supported_residues))"'
+		return set(cls.runHaddock(protocol, pyCmd, '', cwd=cwd, popen=True).split())
+
 
 	@classmethod
 	def checkVarPath(cls, softDic, var='home'):
