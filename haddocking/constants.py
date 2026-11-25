@@ -109,3 +109,4 @@ top_models = {topModels}
 
 LIGAND_RESNAMES = ['LG1', 'LG2']
 WATER_RESNAMES = ['HOH', 'WAT', 'TIP', 'TIP3', 'DOD']
+TOPOLOGY_TERMS = ('BOND', 'ANGL', 'DIHE', 'IMPR')

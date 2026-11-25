@@ -36,7 +36,7 @@ from pwchem.utils import clusterSurfaceCoords, createPocketFile, getBaseName, pd
 
 from pwchem import Plugin as pwchemPlugin
 
-from ..constants import HADDOCK_DIC, DEF_PROTOCOL, HADDOCK_HEADER, LIGAND_RESNAMES, WATER_RESNAMES
+from ..constants import HADDOCK_DIC, DEF_PROTOCOL, HADDOCK_HEADER, LIGAND_RESNAMES, WATER_RESNAMES, TOPOLOGY_TERMS
 from .. import Plugin as haddockPlugin
 
 FROM_ACTIVE = 'From active'
@@ -402,35 +402,56 @@ class ProtHaddockPrediction(EMProtocol):
       f.write(''.join(ligLines) + 'END\n')
 
   def toUnitedAtomTopology(self, topStr):
-    atomRe = re.compile(r'\s*ATOM\s+(\S+)\s+TYPE=\s*(\S+)\s+CHARGE=\s*(\S+)', re.I)
-    termRe = re.compile(r'\s*(BOND|ANGLe|DIHEdral|IMPRoper)\s+(.*)$', re.I)
     lines = topStr.splitlines(keepends=True)
+    types, charges, bonds = self.parseTopologyAtoms(lines)
+    droppedH = self.getNonPolarHydrogens(types, bonds)
+    for hAtom, cAtom in droppedH.items():
+      charges[cAtom] += charges[hAtom]
 
+    outLines = [self.setTopologyCharge(line, charges) for line in lines
+                if not self.hasTopologyAtom(line, droppedH)]
+    return ''.join(outLines), set(droppedH)
+
+  def getTopologyKeyword(self, line):
+    tokens = line.split()
+    return (tokens[0][:4].upper(), tokens[1:]) if tokens else ('', [])
+
+  def parseTopologyAtomLine(self, line):
+    tokens = line.replace('=', ' = ').split()
+    upperTokens = [token.upper() for token in tokens]
+    atomType = tokens[upperTokens.index('TYPE') + 2].lower()
+    charge = float(tokens[upperTokens.index('CHARGE') + 2])
+    return tokens[1], atomType, charge
+
+  def parseTopologyAtoms(self, lines):
     types, charges, bonds = {}, {}, []
     for line in lines:
-      if aMatch := atomRe.match(line):
-        types[aMatch[1]], charges[aMatch[1]] = aMatch[2].lower(), float(aMatch[3])
-      elif (tMatch := termRe.match(line)) and tMatch[1].upper() == 'BOND':
-        bonds.append(tMatch[2].split()[:2])
+      keyword, tokens = self.getTopologyKeyword(line)
+      if keyword == 'ATOM':
+        atomName, types[atomName], charges[atomName] = self.parseTopologyAtomLine(line)
+      elif keyword == 'BOND':
+        bonds.append(tokens[:2])
+    return types, charges, bonds
 
+  def getNonPolarHydrogens(self, types, bonds):
     droppedH = {}
     for atoms in bonds:
       for hAtom, cAtom in (atoms, atoms[::-1]):
         if types[hAtom].startswith('h') and types[cAtom].startswith('c'):
           droppedH[hAtom] = cAtom
-    for hAtom, cAtom in droppedH.items():
-      charges[cAtom] += charges[hAtom]
+    return droppedH
 
-    outLines = []
-    for line in lines:
-      if aMatch := atomRe.match(line):
-        if aMatch[1] in droppedH:
-          continue
-        line = re.sub(r'CHARGE=\s*\S+', f'CHARGE= {charges[aMatch[1]]:9.4f}', line)
-      elif (tMatch := termRe.match(line)) and any(atom in droppedH for atom in tMatch[2].split()):
-        continue
-      outLines.append(line)
-    return ''.join(outLines), set(droppedH)
+  def hasTopologyAtom(self, line, atomNames):
+    keyword, tokens = self.getTopologyKeyword(line)
+    if keyword == 'ATOM':
+      return tokens[0] in atomNames
+    return keyword in TOPOLOGY_TERMS and any(atom in atomNames for atom in tokens)
+
+  def setTopologyCharge(self, line, charges):
+    keyword, tokens = self.getTopologyKeyword(line)
+    if keyword != 'ATOM':
+      return line
+    return re.sub(r'CHARGE=\s*\S+', f'CHARGE= {charges[tokens[0]]:9.4f}', line)
 
   def getLigandCharge(self, num, mol2File):
     userCharge = getattr(self, f'ligCharge_{num}').get()
