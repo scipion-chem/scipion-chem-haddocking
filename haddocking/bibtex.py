@@ -24,6 +24,16 @@
 # *  e-mail address 'scipion@cnb.csic.es'
 # *
 # **************************************************************************
-_bibtexStr = """
-
+"""
+@article{Giulini2024,
+	author = {Giulini, Marco and Honorato, Rodrigo V. and Rivera, Jesús L. and Bonvin, Alexandre M. J. J.},
+	title = {{ARCTIC-3D}: automatic retrieval and clustering of interfaces in complexes from 3{D} structural information},
+	journal = {Communications Biology},
+	year = {2024},
+	volume = {7},
+	number = {1},
+	pages = {49},
+	doi = {10.1038/s42003-023-05718-w},
+	url = {https://www.nature.com/articles/s42003-023-05718-w}
+}
 """
