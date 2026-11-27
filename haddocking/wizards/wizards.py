@@ -29,13 +29,23 @@
 """
 
 from pwchem.wizards import SelectChainWizardQT, SelectResidueWizardQT, SelectElementWizard, AddElementWizard, \
-  SelectAtomWizardQT, AddNumberedElementWizard
-from ..protocols import ProtCPORTPrediction, ProtHaddockPrediction
+  SelectAtomWizardQT, AddNumberedElementWizard, SelectResidueIndexesWizardQT
+from ..protocols import ProtCPORTPrediction, ProtArctic3DPrediction, ProtHaddockPrediction
 
 SelectChainWizardQT().addTarget(protocol=ProtCPORTPrediction,
                                 targets=['chain_name'],
                                 inputs=['inputAtomStruct'],
                                 outputs=['chain_name'])
+
+SelectChainWizardQT().addTarget(protocol=ProtArctic3DPrediction,
+                                targets=['chain_name'],
+                                inputs=['inputAtomStruct'],
+                                outputs=['chain_name'])
+
+SelectResidueIndexesWizardQT().addTarget(protocol=ProtArctic3DPrediction,
+                                targets=['resRange'],
+                                inputs=['inputAtomStruct', 'chain_name'],
+                                outputs=['resRange'])
 
 SelectElementWizard().addTarget(protocol=ProtHaddockPrediction,
                                 targets=['restrROI_1'],

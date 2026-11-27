@@ -50,6 +50,7 @@ class Plugin(pwchemPlugin):
 	def _defineVariables(cls):
 		cls._defineEmVar(HADDOCK_DIC['home'], cls.getEnvName(HADDOCK_DIC))
 		cls._defineEmVar(CPORT_DIC['home'], cls.getEnvName(CPORT_DIC))
+		cls._defineEmVar(ARCTIC3D_DIC['home'], cls.getEnvName(ARCTIC3D_DIC))
 		cls._defineEmVar(GDOCK_DIC['home'], cls.getEnvName(GDOCK_DIC))
 		cls._defineEmVar(LIGHTDOCK_DIC['home'], cls.getEnvName(LIGHTDOCK_DIC))
 
@@ -58,6 +59,7 @@ class Plugin(pwchemPlugin):
 
 		cls._defineVar('HADDOCK_ENV_ACTIVATION', cls.getEnvActivationCommand(HADDOCK_DIC))
 		cls._defineVar('CPORT_ENV_ACTIVATION', cls.getEnvActivationCommand(CPORT_DIC))
+		cls._defineVar('ARCTIC3D_ENV_ACTIVATION', cls.getEnvActivationCommand(ARCTIC3D_DIC))
 
 
 	@classmethod
@@ -65,6 +67,7 @@ class Plugin(pwchemPlugin):
 		"""This function defines the binaries for each package."""
 		cls.addHADDOCKPackage(env, cnsHome=cls.getVar(CNS_DIC['home']))
 		cls.addCPORTPackage(env)
+		cls.addARCTIC3DPackage(env)
 		# cls.addGDockPackage(env)
 		# cls.addLightDockPackage(env)
 
@@ -114,7 +117,14 @@ class Plugin(pwchemPlugin):
 									'CPORT_INSTALLED') \
 			.addPackage(env, ['git', 'conda', 'pip'], default=default)
 
+	@classmethod
+	def addARCTIC3DPackage(cls, env, default=True):
+		installer = InstallHelper(ARCTIC3D_DIC['name'], packageHome=cls.getVar(ARCTIC3D_DIC['home']),
+															packageVersion=ARCTIC3D_DIC['version'])
 
+		installer.getCondaEnvCommand(pythonVersion='3.10', requirementsFile=False,
+																 requirementList=[f'arctic3d=={ARCTIC3D_DIC["version"]}']) \
+			.addPackage(env, ['pip', 'conda'], default=default)
 
 	# ---------------------------------- Protocol functions-----------------------
 	@classmethod
@@ -135,6 +145,12 @@ class Plugin(pwchemPlugin):
 		shutil.move(outPath, protocol.getOutputDir())
 
 	@classmethod
+	def runARCTIC3D(cls, protocol, args, cwd):
+		""" Run ARCTIC-3D command from a given protocol. """
+		fullProgram = f'{cls.getEnvActivationCommand(ARCTIC3D_DIC)} && arctic3d'
+		protocol.runJob(fullProgram, args, env=cls.getEnviron(), cwd=cwd)
+
+	@classmethod
 	def runHaddock(cls, protocol, program, args, cwd, popen=False):
 		""" Run HADDOCK commands from a given protocol. """
 		fullProgram = f'{cls.getEnvActivationCommand(HADDOCK_DIC)} && {program} '
@@ -143,6 +159,13 @@ class Plugin(pwchemPlugin):
 		else:
 			res = sp.check_output(f'{fullProgram} {args}', cwd=cwd, shell=True, text=True)
 			return res
+
+	@classmethod
+	def getSupportedResidues(cls, protocol, cwd):
+		""" Return the residue names included in the HADDOCK3 CNS topology library. """
+		pyCmd = 'python -c "from haddock.core.supported_molecules import supported_residues; ' \
+						'print(\' \'.join(supported_residues))"'
+		return set(cls.runHaddock(protocol, pyCmd, '', cwd=cwd, popen=True).split())
 
 
 	@classmethod

@@ -38,6 +38,24 @@ CNS_DIC = {'name': 'CNS',    'version': '1.3',
 CPORT_DIC = {'name': 'CPORT',    'version': '0.2.0', 'url': 'https://github.com/haddocking/cport.git',
              'home': 'CPORT_HOME', 'activation': 'CPORT_ACTIVATION_CMD'}
 
+ARCTIC3D_DIC = {'name': 'ARCTIC3D',    'version': '0.7.1', 'url': 'https://github.com/haddocking/arctic3d.git',
+                'home': 'ARCTIC3D_HOME', 'activation': 'ARCTIC3D_ACTIVATION_CMD'}
+
+ARCTIC3D_OUTPUT_FILES = [
+    ('arctic3d.log', 'log file with execution details and warnings'),
+    ('input_data', 'copies of the input files'),
+    ('*_updated.cif', 'structure file downloaded from PDBe (mmCIF format)'),
+    ('*.pdb', 'PDB structure used for the analysis and, with the _clN suffix, the structure of cluster N with '
+              'the probabilities encoded in the B-factor column'),
+    ('retrieved_interfaces.out', 'all the interfaces retrieved from PDBe, with their partner IDs and residue lists'),
+    ('interface_matrix.txt', 'pairwise dissimilarity values between all the interfaces (used for the clustering)'),
+    ('dendrogram_*.png', 'hierarchical clustering dendrogram'),
+    ('clustered_interfaces.out', 'interfaces grouped into clusters (binding surfaces)'),
+    ('clustered_residues.out', 'residues belonging to each cluster'),
+    ('clustered_residues_probs.out', 'residues ranked by probability within each cluster'),
+    ('sequence_probability.html', 'interactive bar plot of the per-residue probabilities'),
+    ('sequence_probability.json', 'JSON data of the interactive plot')]
+
 GDOCK_DIC = {'name': 'GDock',    'version': '1.0', 'url': 'https://github.com/rvhonorato/gdock.git',
              'home': 'GDOCK_HOME'}
 
@@ -76,39 +94,37 @@ molecules =  [
 
 DEF_PROTOCOL = '''
 [topoaa]
-
+{ligand}
 [rigidbody]
-ambig_fname = "{}"
-unambig_fname = "{}"
-sampling = {}
+{restraints}sampling = {sampling}
 
 [caprieval]
 
 [seletop]
-select = {}
+select = {select}
 
 [flexref]
-tolerance = {}
-ambig_fname = "{}"
-unambig_fname = "{}"
-
+tolerance = {tolerance}
+{restraints}
 [caprieval]
 
 [emref]
-tolerance = {}
-ambig_fname = "{}"
-unambig_fname = "{}"
-
+tolerance = {tolerance}
+{restraints}
 [caprieval]
 
 [clustfcc]
 plot_matrix = true
 
 [seletopclusts]
-top_models = {}
+top_models = {topModels}
 
 [caprieval]
 
 [contactmap]
 
 # ===================================================================='''
+
+LIGAND_RESNAMES = ['LG1', 'LG2']
+WATER_RESNAMES = ['HOH', 'WAT', 'TIP', 'TIP3', 'DOD']
+TOPOLOGY_TERMS = ('BOND', 'ANGL', 'DIHE', 'IMPR')
